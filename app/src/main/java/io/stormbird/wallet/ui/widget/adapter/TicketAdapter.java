@@ -8,6 +8,7 @@ import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.TicketFunction;
 import io.stormbird.wallet.entity.TicketRangeElement;
+import io.stormbird.wallet.service.AssetDefinitionService;
 import io.stormbird.wallet.ui.widget.OnTicketIdClickListener;
 import io.stormbird.wallet.ui.widget.entity.TokenBalanceSortedItem;
 import io.stormbird.wallet.ui.widget.entity.TokenIdSortedItem;
@@ -33,13 +34,13 @@ public class TicketAdapter extends TokensAdapter
 {
     TicketRange currentRange = null;
     final Ticket ticket;
-    protected TokenDefinition assetDefinition;
+
+    protected AssetDefinitionService assetService;
     protected OnTicketIdClickListener onTicketIdClickListener;
 
-    public TicketAdapter(Context ctx, OnTicketIdClickListener onTicketIdClickListener, Ticket t)
-    {
+    public TicketAdapter(OnTicketIdClickListener onTicketIdClickListener, Ticket t, AssetDefinitionService service) {
         super();
-        assetDefinition = initAssetDefinition(ctx);
+        assetService = service;
         this.onTicketIdClickListener = onTicketIdClickListener;
         ticket = t;
         //load any luaScript
@@ -47,35 +48,14 @@ public class TicketAdapter extends TokensAdapter
         setTicket(t);
     }
 
-    public TicketAdapter(Context ctx, OnTicketIdClickListener onTicketIdClick, Ticket ticket, String ticketIds)
+    public TicketAdapter(OnTicketIdClickListener onTicketIdClick, Ticket ticket, String ticketIds, AssetDefinitionService service)
     {
         super();
         this.onTicketIdClickListener = onTicketIdClick;
-        assetDefinition = initAssetDefinition(ctx);
+        assetService = service;
         this.ticket = ticket;
         //setTicket(ticket);
         setTicketRange(ticket, ticketIds);
-    }
-
-    private TokenDefinition initAssetDefinition(Context ctx)
-    {
-        TokenDefinition definition = null;
-        try
-        {
-            definition = new TokenDefinition(
-                    ctx.getResources().getAssets().open("TicketingContract.xml"),
-                    ctx.getResources().getConfiguration().locale);
-
-        }
-        catch (IOException |SAXException e)
-        {
-            // TODO: how to gracefully bail out from creating a new activity?
-            // Answer - TODO: fall back to static class which provides only the ticket name
-            e.printStackTrace();
-            //throw new RuntimeException("Error in parsing XML asset Definition");
-        }
-
-        return definition;
     }
 
     @Override
@@ -83,7 +63,7 @@ public class TicketAdapter extends TokensAdapter
         BinderViewHolder holder = null;
         switch (viewType) {
             case TicketHolder.VIEW_TYPE: {
-                TicketHolder tokenHolder = new TicketHolder(R.layout.item_ticket, parent, assetDefinition, ticket);
+                TicketHolder tokenHolder = new TicketHolder(R.layout.item_ticket, parent, ticket, assetService);
                 tokenHolder.setOnTokenClickListener(onTicketIdClickListener);
                 holder = tokenHolder;
             } break;
@@ -91,7 +71,7 @@ public class TicketAdapter extends TokensAdapter
                 holder = new TotalBalanceHolder(R.layout.item_total_balance, parent);
             } break;
             case TokenDescriptionHolder.VIEW_TYPE: {
-                holder = new TokenDescriptionHolder(R.layout.item_token_description, parent);
+                holder = new TokenDescriptionHolder(R.layout.item_token_description, parent, ticket, assetService);
             } break;
         }
 
@@ -125,7 +105,7 @@ public class TicketAdapter extends TokensAdapter
             if (v.compareTo(BigInteger.ZERO) == 0) continue;
             TicketRangeElement e = new TicketRangeElement();
             e.id = v;
-            NonFungibleToken nft = new NonFungibleToken(v, assetDefinition);
+            NonFungibleToken nft = assetService.getNonFungibleToken(v);
             e.ticketNumber = nft.getAttribute("numero").value.intValue();
             e.category = (short)nft.getAttribute("category").value.intValue();
             e.match = (short)nft.getAttribute("match").value.intValue();
@@ -182,7 +162,7 @@ public class TicketAdapter extends TokensAdapter
             if (v.compareTo(BigInteger.ZERO) == 0) continue;
             TicketRangeElement e = new TicketRangeElement();
             e.id = v;
-            NonFungibleToken nft = new NonFungibleToken(v, assetDefinition);
+            NonFungibleToken nft = assetService.getNonFungibleToken(v);
             e.ticketNumber = nft.getAttribute("numero").value.intValue();
             e.category = (short)nft.getAttribute("category").value.intValue();
             e.match = (short)nft.getAttribute("match").value.intValue();

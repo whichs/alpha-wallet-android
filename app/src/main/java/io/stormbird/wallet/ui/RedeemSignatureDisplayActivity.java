@@ -19,6 +19,8 @@ import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.common.BitMatrix;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 
+import java.text.DateFormat;
+
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.FinishReceiver;
 import io.stormbird.wallet.entity.SignaturePair;
@@ -44,7 +46,8 @@ import static io.stormbird.wallet.C.PRUNE_ACTIVITY;
  * Created by James on 24/01/2018.
  */
 
-public class RedeemSignatureDisplayActivity extends BaseActivity implements View.OnClickListener {
+public class RedeemSignatureDisplayActivity extends BaseActivity implements View.OnClickListener
+{
     private static final float QR_IMAGE_WIDTH_RATIO = 0.9f;
     public static final String KEY_ADDRESS = "key_address";
 
@@ -89,7 +92,9 @@ public class RedeemSignatureDisplayActivity extends BaseActivity implements View
         tv.setText(getString(R.string.waiting_for_blockchain));
         tv.setVisibility(View.VISIBLE);
 
-        ticket.displayTicketHolder(ticketRange.range, this);
+        View baseView = findViewById(android.R.id.content);
+
+        ticket.displayTicketHolder(ticketRange.range, baseView, viewModel.getAssetDefinitionService(), getBaseContext());
         finishReceiver = new FinishReceiver(this);
     }
 

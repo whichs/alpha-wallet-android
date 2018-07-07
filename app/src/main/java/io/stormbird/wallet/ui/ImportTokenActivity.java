@@ -16,13 +16,16 @@ import android.widget.TextView;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.text.DateFormat;
 import java.text.DecimalFormat;
 
 import javax.inject.Inject;
 
 import dagger.android.AndroidInjection;
 import io.stormbird.token.entity.MagicLinkData;
+import io.stormbird.token.entity.NonFungibleToken;
 import io.stormbird.token.entity.TicketRange;
 import io.stormbird.token.tools.ParseMagicLink;
 import io.stormbird.token.tools.TokenDefinition;
@@ -70,8 +73,6 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
 
     private LinearLayout costLayout;
     private int networkId = 0;
-
-    private TokenDefinition ticketToken = null;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -125,47 +126,19 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         ticketRange = null;
 
         Ticket.blankTicketHolder(R.string.loading,this);
-
-        loadTicketToken();
-    }
-
-    private void loadTicketToken()
-    {
-        if (ticketToken == null)
-        {
-            try
-            {
-                ticketToken = new TokenDefinition(
-                        getResources().getAssets().open("TicketingContract.xml"),
-                        getResources().getConfiguration().locale);
-            }
-            catch (IOException|SAXException e)
-            {
-                unVerified.setVisibility(View.VISIBLE);
-                textUnverified.setVisibility(View.VISIBLE);
-            }
-        }
     }
 
     private void checkContractNetwork(String contractAddress)
     {
-        if (ticketToken != null)
+        int checkNetworkId = viewModel.getAssetDefinitionService().getAssetDefinition().getNetworkFromContract(contractAddress);
+        if (checkNetworkId > 0)
         {
-            //is this address present in any of the networks?
-            int networkId = ticketToken.getNetworkFromContract(contractAddress);
-            if (networkId > 0)
-            {
-                viewModel.switchNetwork(networkId);
-            }
-            else
-            {
-                //TODO: attempt to determine which network the contract is on.
-                //TODO: Use Etherscan to ping the networks sequentially
-                viewModel.loadToken();
-            }
+            viewModel.switchNetwork(checkNetworkId);
         }
         else
         {
+            //TODO: attempt to determine which network the contract is on.
+            //TODO: Use Etherscan to ping the networks sequentially
             viewModel.loadToken();
         }
     }
@@ -187,8 +160,8 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         hideDialog();
         aDialog = new AWalletAlertDialog(this);
         aDialog.setIcon(AWalletAlertDialog.ERROR);
-        aDialog.setTitle(R.string.ticket_not_valid);// bad_import_link);
-        aDialog.setMessage(R.string.ticket_not_valid_body);// bad_import_link_body);
+        aDialog.setTitle(R.string.ticket_not_valid);
+        aDialog.setMessage(R.string.ticket_not_valid_body);
         aDialog.setButtonText(R.string.action_cancel);
         aDialog.setButtonListener(v -> aDialog.dismiss());
         aDialog.show();
@@ -267,9 +240,10 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         MagicLinkData order = viewModel.getSalesOrder();
 
         String ethPrice = getEthString(order.price) + " " + ETH_SYMBOL;
-        String priceUsd = "$" + getUsdString(viewModel.getUSDPrice());
+        String priceUsd = "$" + getUsdString(viewModel.getUSDPrice() * order.price);
 
-        if (order.price == 0) {
+        if (order.price == 0)
+        {
             priceETH.setText(R.string.free_import);
             priceETH.setVisibility(View.VISIBLE);
             priceUSD.setVisibility(View.GONE);
@@ -290,23 +264,17 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
 
         importTxt.setText(R.string.ticket_import_valid);
 
-        ticket.displayTicketHolder(ticketRange, this);
+        View baseView = findViewById(android.R.id.content);
+
+        ticket.displayTicketHolder(ticketRange, baseView, viewModel.getAssetDefinitionService(), getBaseContext());
 
         verifiedLayer.setVisibility(View.VISIBLE);
 
-        if (ticketToken != null)
+        int contractNetworkId = viewModel.getAssetDefinitionService().getAssetDefinition().getNetworkFromContract(ticket.getAddress());
+        if (contractNetworkId == networkId)
         {
-            String address = ticketToken.getContractAddress(networkId); // Null if contract address undefined for given networkID
-            if (address != null && address.equalsIgnoreCase(ticketRange.contractAddress))
-            {
-                verified.setVisibility(View.VISIBLE);
-                textVerified.setVisibility(View.VISIBLE);
-            }
-            else
-            {
-                unVerified.setVisibility(View.VISIBLE);
-                textUnverified.setVisibility(View.VISIBLE);
-            }
+            verified.setVisibility(View.VISIBLE);
+            textVerified.setVisibility(View.VISIBLE);
         }
         else
         {
@@ -324,7 +292,7 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         Ticket t = viewModel.getImportToken();
         TextView tv = findViewById(R.id.text_ticket_range);
         String importText = String.valueOf(order.ticketCount) + "x ";
-        importText += t.getFullName();
+        importText += t.getTokenName(viewModel.getAssetDefinitionService());
 
         tv.setText(importText);
     }
@@ -345,9 +313,9 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         Ticket t = viewModel.getImportToken();
         TextView tv = findViewById(R.id.text_ticket_range);
         String importText = String.valueOf(order.ticketCount) + "x ";
-        importText += t.getFullName();
-
+        importText += t.getTokenName(viewModel.getAssetDefinitionService());
         tv.setText(importText);
+        //Note: it's actually not possible to pull the event or anything like that since we can't get the tokenID if it's been imported.
     }
 
     private void onProgress(boolean shouldShowProgress) {
@@ -436,17 +404,10 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
                     else {
                         onProgress(true);
                         Ticket t = viewModel.getImportToken();
-                        if (ticketToken != null)
+                        int checkNetworkId = viewModel.getAssetDefinitionService().getAssetDefinition().getNetworkFromContract(t.getAddress());
+                        if (checkNetworkId > 0)
                         {
-                            String address = ticketToken.getContractAddress(networkId); // Null if contract address undefined for given networkID
-                            if (address != null && address.equalsIgnoreCase(t.getAddress()))
-                            {
-                                viewModel.importThroughFeemaster(ticketToken.getFeemasterAPI());
-                            }
-                            else
-                            {
-                                viewModel.performImport();
-                            }
+                            viewModel.importThroughFeemaster(viewModel.getAssetDefinitionService().getAssetDefinition().getFeemasterAPI());
                         }
                         else
                         {

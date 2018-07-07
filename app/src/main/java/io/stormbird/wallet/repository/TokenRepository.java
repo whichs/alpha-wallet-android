@@ -493,7 +493,7 @@ public class TokenRepository implements TokenRepositoryType {
             TokenFactory tFactory = new TokenFactory();
             try
             {
-                if (token.ticker != null && token.isEthereum())
+                if (token.isEthereum())
                 {
                     return token; //already have the balance for ETH
                 }
@@ -638,6 +638,34 @@ public class TokenRepository implements TokenRepositoryType {
                         }).onErrorResumeNext(throwable -> Single.just(token)));
     }
 
+    /**
+     * Either returns the live eth balance or cached if network is unavilable
+     * We can derive the time when the balance was fetched from the Token info
+     *
+     * @param network
+     * @param wallet
+     * @return
+     */
+    @Override
+    public Single<Token> getEthBalance(NetworkInfo network, Wallet wallet) {
+        return walletRepository.balanceInWei(wallet)
+                .map(balance -> {
+                    if (balance.equals(BigDecimal.valueOf(-1)))
+                    {
+                        //network error - retrieve from cache
+                        Token b = localSource.getTokenBalance(network, wallet, wallet.address);
+                        if (b != null) balance = b.balance;
+                        else balance = BigDecimal.ZERO;
+                    }
+                    TokenInfo info = new TokenInfo(wallet.address, network.name, network.symbol, 18, true);
+                    Token eth = new Token(info, balance, System.currentTimeMillis());
+                    eth.setIsEthereum();
+                    //store token and balance
+                    localSource.updateTokenBalance(network, wallet, eth);
+                    return eth;
+                });
+    }
+
     @Override
     public Single<Ticker> getEthTicker()
     {
@@ -706,7 +734,13 @@ public class TokenRepository implements TokenRepositoryType {
         }
         else
         {
-            return null;
+            return rx.Observable.fromCallable(() -> {
+                TransferFromEventResponse event = new TransferFromEventResponse();
+                event._from = "";
+                event._to = "";
+                event._indices = null;
+                return event;
+            });
         }
     }
 
