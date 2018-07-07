@@ -12,8 +12,14 @@ import io.stormbird.wallet.repository.entity.RealmToken;
 import io.stormbird.wallet.ui.widget.holder.TokenHolder;
 import io.stormbird.wallet.viewmodel.BaseViewModel;
 
+import org.keplerproject.luajava.LuaException;
+import org.keplerproject.luajava.LuaState;
+import org.keplerproject.luajava.LuaStateFactory;
 import org.web3j.utils.Numeric;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -30,6 +36,61 @@ public class Token implements Parcelable
     public boolean balanceIsLive = false;
     public boolean isERC20 = false; //TODO: when we see ERC20 functions in transaction decoder switch this on
     private boolean isEth = false;
+    private static LuaState luaState = null;
+    private static Context luaCtx = null;
+
+    public static LuaState getLua()
+    {
+        return luaState;
+    }
+    public static void initLua(Context ctx)
+    {
+        if (luaState == null)
+        {
+            System.gc();
+            luaCtx = ctx;
+
+            luaState = LuaStateFactory.newLuaState();
+            luaState.openLibs();
+
+            try
+            {
+                luaState.pushObjectValue(Log.class);
+                luaState.setGlobal("Log");
+            }
+            catch (LuaException e1)
+            {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+        }
+    }
+
+    public String loadLuaFile(int resource)
+    {
+        InputStream luaFile = luaCtx.getResources().openRawResource(resource);
+        return readStream(luaFile);
+    }
+
+    private String readStream(InputStream is)
+    {
+        try
+        {
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            int i = is.read();
+            while (i != -1)
+            {
+                bo.write(i);
+                i = is.read();
+            }
+            return bo.toString();
+        }
+        catch (IOException e)
+        {
+            Log.e("ReadStream", "IO Error");
+            return "";
+        }
+    }
 
     public TokenTicker ticker;
 

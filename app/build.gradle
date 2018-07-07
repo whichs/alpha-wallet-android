@@ -31,7 +31,7 @@ android {
         minSdkVersion 18
         targetSdkVersion 27
         versionCode 3
-        versionName "1.0.2"
+        versionName '1.0.3'
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         multiDexEnabled = true
@@ -54,6 +54,14 @@ android {
     packagingOptions {
         exclude 'META-INF/NOTICE' // will not include NOTICE file
         exclude 'META-INF/LICENSE' // will not include LICENSE file
+            pickFirst  'lib/mips64/libluajava.so'
+            pickFirst  'lib/x86_64/libluajava.so'
+            pickFirst  'lib/armeabi/libluajava.so'
+            pickFirst  'lib/armeabi-v7a/libluajava.so'
+            pickFirst  'lib/arm64-v81/libluajava.so'
+            pickFirst  'lib/arm64-v8a/libluajava.so'
+            pickFirst  'lib/x86/libluajava.so'
+            pickFirst  'lib/mips/libluajava.so'
         // as noted by @Vishnuvathsan you may also need to include
         // variations on the file name. It depends on your dependencies.
         // Some other common variations on notice and license file names
@@ -68,6 +76,9 @@ android {
     compileOptions {
         targetCompatibility JavaVersion.VERSION_1_8
         sourceCompatibility JavaVersion.VERSION_1_8
+    }
+    dexOptions {
+        javaMaxHeapSize "8g"
     }
 }
 
@@ -118,7 +129,7 @@ dependencies {
     implementation 'com.google.zxing:core:3.3.2'
 
     // Sugar
-    implementation 'com.android.support.constraint:constraint-layout:1.1.0'
+    implementation 'com.android.support.constraint:constraint-layout:1.1.2'
     implementation 'com.github.apl-devs:appintro:v4.2.2'
     implementation 'com.romandanylyk:pageindicatorview:1.0.0'
     //implementation 'com.journeyapps:zxing-android-embedded:3.5.0@aar'
@@ -160,4 +171,5 @@ dependencies {
     // PW
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(':tn')
+    implementation project(path: ':luajava')
 }

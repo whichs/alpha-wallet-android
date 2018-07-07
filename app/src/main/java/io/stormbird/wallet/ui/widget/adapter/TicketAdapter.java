@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 import io.stormbird.token.tools.TokenDefinition;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Ticket;
+import io.stormbird.wallet.entity.TicketFunction;
 import io.stormbird.wallet.entity.TicketRangeElement;
 import io.stormbird.wallet.ui.widget.OnTicketIdClickListener;
 import io.stormbird.wallet.ui.widget.entity.TokenBalanceSortedItem;
@@ -28,18 +29,21 @@ import java.util.List;
  * Created by James on 9/02/2018.
  */
 
-public class TicketAdapter extends TokensAdapter {
+public class TicketAdapter extends TokensAdapter
+{
     TicketRange currentRange = null;
     final Ticket ticket;
     protected TokenDefinition assetDefinition;
-
     protected OnTicketIdClickListener onTicketIdClickListener;
 
-    public TicketAdapter(Context ctx, OnTicketIdClickListener onTicketIdClickListener, Ticket t) {
+    public TicketAdapter(Context ctx, OnTicketIdClickListener onTicketIdClickListener, Ticket t)
+    {
         super();
         assetDefinition = initAssetDefinition(ctx);
         this.onTicketIdClickListener = onTicketIdClickListener;
         ticket = t;
+        //load any luaScript
+        TicketFunction.loadLuaContract(ticket.getAddress());
         setTicket(t);
     }
 

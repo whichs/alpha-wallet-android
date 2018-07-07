@@ -27,6 +27,8 @@ import dagger.android.AndroidInjection;
 import io.stormbird.wallet.C;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.ErrorEnvelope;
+import io.stormbird.wallet.entity.TicketFunction;
+import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.Wallet;
 import io.stormbird.wallet.util.RootUtil;
 import io.stormbird.wallet.viewmodel.BaseNavigationActivity;
@@ -59,6 +61,10 @@ public class HomeActivity extends BaseNavigationActivity implements View.OnClick
         setContentView(R.layout.activity_home);
 
         toolbar();
+        Token.initLua(this);
+        TicketFunction.setContext(this);
+
+        //TicketFunction.loadResource("https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/ETHEREUM-YOUTUBE-PROFILE-PIC.png/768px-ETHEREUM-YOUTUBE-PROFILE-PIC.png");
 
         viewPager = findViewById(R.id.view_pager);
         pagerAdapter = new ScreenSlidePagerAdapter(getSupportFragmentManager());

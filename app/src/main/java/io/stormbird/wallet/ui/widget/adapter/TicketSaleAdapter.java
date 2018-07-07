@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.TicketRangeElement;
+import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.ui.widget.OnTicketIdClickListener;
 import io.stormbird.wallet.ui.widget.OnTokenCheckListener;
 import io.stormbird.wallet.ui.widget.entity.MarketSaleHeaderSortedItem;

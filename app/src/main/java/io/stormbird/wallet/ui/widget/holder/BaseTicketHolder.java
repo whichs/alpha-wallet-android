@@ -3,10 +3,16 @@ package io.stormbird.wallet.ui.widget.holder;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import org.keplerproject.luajava.LuaException;
+import org.keplerproject.luajava.LuaState;
 
 import java.text.DateFormat;
 import java.util.Date;
@@ -17,6 +23,7 @@ import java.util.Locale;
 import io.stormbird.token.tools.TokenDefinition;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Ticket;
+import io.stormbird.wallet.entity.TicketFunction;
 import io.stormbird.wallet.entity.Token;
 
 import io.stormbird.wallet.ui.widget.OnTicketIdClickListener;
@@ -41,6 +48,8 @@ public class BaseTicketHolder extends BinderViewHolder<TicketRange> implements V
     private final TextView ticketDetails;
     protected final LinearLayout ticketDetailsLayout;
     protected final LinearLayout ticketLayout;
+    protected final ImageView ticketContainer;
+    private NonFungibleToken nonFungibleToken;
 
     public BaseTicketHolder(int resId, ViewGroup parent, TokenDefinition definition, Token ticket) {
         super(resId, parent);
@@ -56,6 +65,7 @@ public class BaseTicketHolder extends BinderViewHolder<TicketRange> implements V
         ticketRedeemed = findViewById(R.id.redeemed);
         ticketDetailsLayout = findViewById(R.id.layout_ticket_details);
         ticketLayout = findViewById(R.id.layout_select_ticket);
+        ticketContainer = findViewById(R.id.ticketContainer);
         assetDefinition = definition;
         this.ticket = (Ticket)ticket;
     }
@@ -70,14 +80,19 @@ public class BaseTicketHolder extends BinderViewHolder<TicketRange> implements V
         this.thisData = data;
         name.setText(ticket.tokenInfo.name);
 
-        if (data.tokenIds.size() > 0) {
+        //1. load the Lua script by passing the contract addr.
+        //2. if already present then return it. (need to re-check every minute or so)
+
+        if (data.tokenIds.size() > 0)
+        {
             BigInteger firstTokenId = data.tokenIds.get(0);
             String seatCount = String.format(Locale.getDefault(), "x%d", data.tokenIds.size());
             count.setText(seatCount);
-            try {
-                NonFungibleToken nonFungibleToken = new NonFungibleToken(firstTokenId, assetDefinition);
-                String nameStr = assetDefinition.getTokenName();
-                nameStr = nonFungibleToken.getAttribute("category").text;
+            try
+            {
+                nonFungibleToken = new NonFungibleToken(firstTokenId, assetDefinition);
+                String nameStr = nonFungibleToken.getAttribute("category").text;
+
                 String venueStr = nonFungibleToken.getAttribute("venue").text;
                 Date startTime = new Date(nonFungibleToken.getAttribute("time").value.longValue()*1000L);
                 int cat = nonFungibleToken.getAttribute("category").value.intValue();
@@ -104,6 +119,49 @@ public class BaseTicketHolder extends BinderViewHolder<TicketRange> implements V
                 name.setText(firstTokenId.toString(16));
             }
         }
+
+        final ViewTreeObserver.OnPreDrawListener drawListener = new ViewTreeObserver.OnPreDrawListener()
+        {
+            @Override
+            public boolean onPreDraw()
+            {
+                ticketLayout.getViewTreeObserver().removeOnPreDrawListener(this);
+                int width = ticketLayout.getWidth();
+                int height = ticketLayout.getHeight();
+                TicketFunction.setXY(width, height);
+                String nameStr = nonFungibleToken.getAttribute("category").text;
+
+                try
+                {
+                    LuaState lua = Token.getLua();
+                    if (lua != null && TicketFunction.hasLuaScript())
+                    {
+                        TicketFunction.setTargetLayout(ticketContainer);
+                        lua.getGlobal("tickettrial");
+                        lua.pushObjectValue(TicketFunction.class);
+                        lua.setGlobal("Tickfun");
+                        lua.pushString(nameStr);
+                        lua.pushNumber(nonFungibleToken.getAttribute("numero").value.intValue());
+                        lua.call(2, 1);
+                        nameStr = lua.toString(-1);
+                        name.setText(nameStr);
+                    }
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+                return true;
+            }
+        };
+        ticketLayout.getViewTreeObserver().addOnPreDrawListener(drawListener);
+    }
+
+    private void setXY()
+    {
+        ViewGroup.LayoutParams params = ticketLayout.getLayoutParams();
+
+        TicketFunction.setXY(params.width, params.height);
     }
 
     @Override
