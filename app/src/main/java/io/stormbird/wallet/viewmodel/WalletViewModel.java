@@ -292,7 +292,6 @@ public class WalletViewModel extends BaseViewModel {
 
     private void onDefaultNetwork(NetworkInfo networkInfo) {
         defaultNetwork.postValue(networkInfo);
-        assetDefinitionService.setCurrentNetwork(networkInfo);
         disposable = findDefaultWalletInteract
                 .find()
                 .subscribe(this::onDefaultWallet, this::onError);

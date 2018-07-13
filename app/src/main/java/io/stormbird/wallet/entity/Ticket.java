@@ -542,7 +542,7 @@ public class Ticket extends Token implements Parcelable
         }
     }
 
-    private String getTokenTitle(NonFungibleToken nonFungibleToken)
+    public String getTokenTitle(NonFungibleToken nonFungibleToken)
     {
         String tokenTitle = nonFungibleToken.getAttribute("category").text;
         if (tokenTitle == null || tokenTitle.length() == 0)

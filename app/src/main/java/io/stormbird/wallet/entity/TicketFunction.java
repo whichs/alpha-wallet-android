@@ -9,6 +9,8 @@ import android.util.Log;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.keplerproject.luajava.LuaState;
 import org.web3j.protocol.core.methods.response.Transaction;
 
@@ -92,8 +94,9 @@ public class TicketFunction
     {
         loadedScript = false;
         String luaScript = getContractScript(address);
-        if (luaScript != null)
+        if (luaScript.length() > 10)
         {
+            //TODO: Can we sanity check the Lua script here?
             //load this as our contract
             LuaState lua = Token.getLua();
             if (lua != null)
@@ -112,7 +115,7 @@ public class TicketFunction
             if (contractScript != null)
             {
                 //check access time
-                if (scriptAccess.get(address) < System.currentTimeMillis())
+                if (scriptAccess.get(address) == null || scriptAccess.get(address) < System.currentTimeMillis())
                 {
                     return fetchScriptFromServer(address).subscribeOn(Schedulers.io()).blockingSingle();
                 }
@@ -129,7 +132,7 @@ public class TicketFunction
         catch (Exception e)
         {
             e.printStackTrace();
-            return null;
+            return "";
         }
     }
 
@@ -144,7 +147,7 @@ public class TicketFunction
         }
         else
         {
-            return null;
+            return "";
         }
     }
 
@@ -166,9 +169,10 @@ public class TicketFunction
     {
         return Observable.fromCallable(() -> {
             StringBuilder sb = new StringBuilder();
-            sb.append("https://app.awallet.io:80/api/getScript/");
+            //sb.append("https://app.awallet.io:80/api/getScript/");
+            sb.append("http://66.96.208.58:8080/api/luaScript?address=");
             sb.append(address);
-            String result = null;
+            String result = "";
 
             try
             {
@@ -179,9 +183,18 @@ public class TicketFunction
 
                 okhttp3.Response response = httpClient.newCall(request).execute();
 
-                result = response.body().string();
+                //http://66.96.208.58:8080/api/luaScript?address=0xa66a3f08068174e8f005112a8b2c7a507a822335
+                String jsonResult = response.body().string();
                 scriptAccess.put(address, System.currentTimeMillis() + 1000*60*10); //check once per 10 mins
-                storeFile(address, result);
+                if (jsonResult != null && jsonResult.length() > 10)
+                {
+                    JSONArray codeArray = new JSONArray(jsonResult);
+                    JSONObject code = codeArray.getJSONObject(0);
+                    String vAddr = code.getString("address");
+                    result = code.getString("script");
+                    //only use trusted return/script pairs
+                    storeFile(vAddr, result);
+                }
             }
             catch (Exception e)
             {
@@ -196,6 +209,12 @@ public class TicketFunction
     {
         String fName = address + "cScript.lua";
         File file = getLocalFile(fName);
+
+        if (file.exists())
+        {
+            file.delete();
+            file = getLocalFile(fName);
+        }
 
         FileOutputStream fos = new FileOutputStream(file);
         OutputStream os = new BufferedOutputStream(fos);
@@ -288,28 +307,16 @@ public class TicketFunction
                 if (dl == null) return errorFile;
 
                 FileOutputStream fos = new FileOutputStream(targetFile);
-
                 OutputStream os = new BufferedOutputStream(fos);
 
-                int bufferLength = 0; //used to store a temporary size of the buffer
+                int bufferLength;
                 InputStream in = new BufferedInputStream(dl.fileURL.openStream());
-
-                int downloadedSize = 0;
-                int lastpoint = -1;
 
                 //now, read through the input buffer and write the contents to the file
                 while ((bufferLength = in.read(largebuffer)) > 0)
                 {
                     //add the data in the buffer to the file in the file output stream (the file on the sd card
                     os.write(largebuffer, 0, bufferLength);
-                    downloadedSize += bufferLength;
-                    //Log.i("Progress:","downloadedSize:"+downloadedSize+"totalSize:"+ totalSize) ;
-                    float total = ((float) downloadedSize / (float) dl.totalSize) * 100;
-                    int prg = (int) total;
-                    if (prg != lastpoint)
-                    {
-                        lastpoint = prg;
-                    }
                 }
 
                 returnValue = targetFile.getName();

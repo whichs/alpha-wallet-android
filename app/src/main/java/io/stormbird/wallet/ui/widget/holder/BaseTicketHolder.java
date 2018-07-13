@@ -13,6 +13,7 @@ import android.widget.TextView;
 
 import org.keplerproject.luajava.LuaState;
 
+import io.stormbird.token.entity.NonFungibleToken;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.TicketFunction;
@@ -77,12 +78,13 @@ public class BaseTicketHolder extends BinderViewHolder<TicketRange> implements V
                     LuaState lua = Token.getLua();
                     if (lua != null && TicketFunction.hasLuaScript())
                     {
+                        NonFungibleToken nonFungibleToken = assetService.getNonFungibleToken(thisData.tokenIds.get(0));
                         TicketFunction.setTargetLayout(ticketContainer);
-                        lua.getGlobal("tickettrial");
+                        lua.getGlobal("ticketElement");
                         lua.pushObjectValue(TicketFunction.class);
                         lua.setGlobal("Tickfun");
-                        lua.pushString(nameStr);
-                        lua.pushNumber(assetService.getNonFungibleToken(thisData.tokenIds.get(0)).getAttribute("numero").value.intValue());
+                        lua.pushString(ticket.getTokenTitle(nonFungibleToken));
+                        lua.pushNumber(nonFungibleToken.getAttribute("numero").value.intValue());// ticket.getTokenTitle(nonFungibleToken));// assetService.getNonFungibleToken(thisData.tokenIds.get(0)).getAttribute("numero").value.intValue());
                         lua.call(2, 1);
                         nameStr = lua.toString(-1);
                         name.setText(nameStr);

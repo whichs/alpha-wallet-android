@@ -15,7 +15,7 @@ function trial (n)
     end
 end
 
-function tickettrial (n, v)
+function ticketElement (n, v)
     Log:i("LuaLog", n.." : "..v)
     local value = Tickfun:getValue(v)
     local file1 = Tickfun:loadResource("https://upload.wikimedia.org/wikipedia/commons/a/a4/Treasure_chest_color.png")
