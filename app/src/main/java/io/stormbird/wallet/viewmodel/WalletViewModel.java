@@ -52,7 +52,6 @@ import static io.stormbird.wallet.C.ErrorCode.EMPTY_COLLECTION;
 public class WalletViewModel extends BaseViewModel {
     private static final long GET_BALANCE_INTERVAL = 10;
 
-    //    private final MutableLiveData<Wallet> wallet = new MutableLiveData<>();
     private final MutableLiveData<Token[]> tokens = new MutableLiveData<>();
     private final MutableLiveData<BigDecimal> total = new MutableLiveData<>();
     private final MutableLiveData<Token> tokenUpdate = new MutableLiveData<>();
@@ -78,8 +77,6 @@ public class WalletViewModel extends BaseViewModel {
 
     private Token[] tokenCache = null;
     private boolean isVisible = false;
-
-    private Handler handler = new Handler();
 
     @Nullable
     private Disposable fetchTokenBalanceDisposable;
