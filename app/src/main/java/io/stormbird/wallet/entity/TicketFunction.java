@@ -17,6 +17,7 @@ import org.web3j.protocol.core.methods.response.Transaction;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -226,26 +227,41 @@ public class TicketFunction
     public static void defineTargetBackground(String f)
     {
         File backgroundFile = getLocalFile(f);
+        File preTrimmed = getLocalFile(f + "m");
         try
         {
+            if (preTrimmed.exists())
+            {
+                Bitmap bitmap = BitmapFactory.decodeFile(preTrimmed.getAbsolutePath());
+                targetLayout.setImageBitmap(bitmap);
+            }
+            else
             if (backgroundFile.exists())
             {
                 Bitmap bitmap = BitmapFactory.decodeFile(backgroundFile.getAbsolutePath());
                 if (bitmap.getHeight() > layoutY || bitmap.getWidth() > layoutX)
                 {
-                    double scaleXFactor = (double)bitmap.getWidth() / (double)layoutX;
-                    double scaleYFactor = (double)bitmap.getHeight() / (double)layoutY;
+                    double scaleXFactor = (double) bitmap.getWidth() / (double) layoutX;
+                    double scaleYFactor = (double) bitmap.getHeight() / (double) layoutY;
                     if (scaleXFactor > scaleYFactor)
                     {
-                        bitmap = Bitmap.createScaledBitmap(bitmap, layoutX, (int)((double)layoutY/scaleXFactor), false);
+                        bitmap = Bitmap.createScaledBitmap(bitmap, layoutX, (int) ((double) layoutY / scaleXFactor), false);
                     }
                     else
                     {
-                        bitmap = Bitmap.createScaledBitmap(bitmap, (int)((double)bitmap.getWidth()/scaleYFactor), layoutY, false);
+                        bitmap = Bitmap.createScaledBitmap(bitmap, (int) ((double) bitmap.getWidth() / scaleYFactor), layoutY, false);
                     }
                 }
 
                 targetLayout.setImageBitmap(bitmap);// .setBackground(drawable);
+
+                //write this bitmap to compressed, using try-with-resources
+                try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                     FileOutputStream fos = new FileOutputStream(getLocalFile(f + "m"));)
+                {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 90, out);
+                    fos.write(out.toByteArray());
+                }
             }
         }
         catch (Exception e)
