@@ -9,13 +9,17 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.XMLConstants;
+
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.internal.operators.observable.ObservableError;
 import io.reactivex.schedulers.Schedulers;
 import io.stormbird.wallet.entity.ErrorEnvelope;
 import io.stormbird.wallet.entity.NetworkInfo;
@@ -309,22 +313,32 @@ public class WalletViewModel extends BaseViewModel {
 
     public void setContractAddresses()
     {
-        disposable = fetchAllContractAddresses()
-                .flatMapIterable(address -> address)
-                .flatMap(setupTokensInteract::addToken)
-                .flatMap(tokenInfo -> addTokenInteract.add(tokenInfo, defaultWallet.getValue()))
-                .subscribeOn(Schedulers.io())
-                .subscribe(this::finishedImport, this::onTokenAddError);
+        List<String> XMLAddrs = assetDefinitionService.getAllContracts(defaultNetwork.getValue().chainId);
+
+        if (XMLAddrs != null)
+        {
+            disposable = fetchTokensInteract.fetchTokenList(defaultNetwork.getValue(), defaultWallet.getValue())
+                    .map(this::toAddresses)
+                    .map(tokenAddrs -> removeKnown(XMLAddrs, tokenAddrs))
+                    .flatMapIterable(address -> address)
+                    .flatMap(setupTokensInteract::addToken)
+                    .flatMap(tokenInfo -> addTokenInteract.add(tokenInfo, defaultWallet.getValue()))
+                    .subscribeOn(Schedulers.io())
+                    .subscribe(this::finishedImport, this::onTokenAddError);
+        }
     }
 
-    private Observable<List<String>> fetchAllContractAddresses()
+    private List<String> toAddresses(List<Token> tokens)
     {
-        return Observable.fromCallable(() -> {
-            //populate contracts from service
-            List<String> contracts = assetDefinitionService.getAllContracts(defaultNetwork.getValue().chainId);
+        List<String> addrs = new ArrayList<>();
+        for (Token t : tokens) addrs.add(t.getAddress());
+        return addrs;
+    }
 
-            return contracts;
-        });
+    private List<String> removeKnown(List<String> XMLAddrs, List<String> tokenAddrs)
+    {
+        XMLAddrs.removeAll(tokenAddrs);
+        return XMLAddrs;
     }
 
     private void onTokenAddError(Throwable throwable)

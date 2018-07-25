@@ -213,7 +213,8 @@ public class TokenRepository implements TokenRepositoryType {
                 .toObservable();
     }
 
-    private Observable<List<Token>> fetchStoredEnabledTokensList(NetworkInfo network, Wallet wallet) {
+    @Override
+    public Observable<List<Token>> fetchStoredEnabledTokensList(NetworkInfo network, Wallet wallet) {
         return localSource
                 .fetchEnabledTokensSequentialList(network, wallet);
     }

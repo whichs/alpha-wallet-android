@@ -95,6 +95,13 @@ public class FetchTokensInteract {
                         .observeOn(AndroidSchedulers.mainThread());
     }
 
+    public Observable<List<Token>> fetchTokenList(NetworkInfo network, Wallet wallet)
+    {
+        return tokenRepository.fetchStoredEnabledTokensList(network, wallet)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
+
     public Observable<Token> fetchEth(NetworkInfo network, Wallet wallet)
     {
         return tokenRepository.getEthBalance(network, wallet).toObservable()
