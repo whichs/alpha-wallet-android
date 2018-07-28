@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import io.reactivex.Scheduler;
 import io.stormbird.wallet.entity.NetworkInfo;
 import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.Transaction;
@@ -320,6 +321,7 @@ public class TransactionsViewModel extends BaseViewModel
                 .flatMapIterable(address -> address) //change to a sequential stream
                 .flatMap(setupTokensInteract::addToken) //fetch token info
                 .flatMap(addTokenInteract::add) //add to cached tokens
+                .map(this::addToTokenMap)
                 .flatMap(token -> setupTokensInteract.reProcessTokens(token, txMap)) //run through transactions now we have the new token
                 .flatMap(this::removeFromMap) //remove the handled transactions from the map (so we don't need to scan these transactions again)
                 .flatMap(transactions -> fetchTransactionsInteract.storeTransactions(network.getValue(), wallet.getValue(), transactions).toObservable()) //store newly fixed up transactions
@@ -332,6 +334,12 @@ public class TransactionsViewModel extends BaseViewModel
             progress.postValue(false);
             showEmpty.postValue(true);
         }
+    }
+
+    private Token addToTokenMap(Token token)
+    {
+        tokenMap.put(token.getAddress(), token);
+        return token;
     }
 
     //update the display for newly fetched tokens
@@ -349,7 +357,7 @@ public class TransactionsViewModel extends BaseViewModel
         Transaction[] transactions = txMap.values().toArray(new Transaction[txMap.size()]);
         fetchTransactionDisposable = fetchTransactionsInteract.storeTransactions(network.getValue(), wallet.getValue(), transactions).toObservable()
                 .subscribeOn(Schedulers.io())
-                .subscribe(this::completeCycle, this::onError);
+                .subscribe(this::completeCycle, this::onError, this::scanForTerminatedTokens);
     }
 
     private void completeCycle(Transaction[] transactions)
@@ -365,6 +373,21 @@ public class TransactionsViewModel extends BaseViewModel
         {
             checkIfRegularUpdateNeeded();
         }
+    }
+
+    private void scanForTerminatedTokens()
+    {
+        //run through the map and see if there were any tokens that have been terminated
+        disposable = Observable.fromArray(tokenMap.values().toArray(new Token[tokenMap.size()]))
+                .filter(Token::isScheduledForTermination)
+                .subscribeOn(Schedulers.newThread())
+//                .observeOn(Schedulers.newThread())
+                .subscribe(this::onTokenForTermination, this::onError);
+    }
+
+    private void onTokenForTermination(Token token)
+    {
+        setupTokensInteract.terminateToken(token, defaultWallet().getValue(), defaultNetwork().getValue());
     }
 
     private Observable<Transaction[]> removeFromMap(Transaction[] transactions)

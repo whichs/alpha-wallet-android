@@ -173,6 +173,29 @@ public class WalletViewModel extends BaseViewModel {
         {
             updateTokenBalances();
         }
+
+        disposable = fetchTokensInteract.fetchSequential(defaultWallet.getValue())
+                .filter(token -> (token.tokenInfo.name == null && !token.isTerminated()))
+                .subscribeOn(Schedulers.io())
+                .subscribe(this::reFetchToken, this::onError);
+    }
+
+    private void reFetchToken(Token t)
+    {
+        //fetch token info
+        Disposable d = fetchTokensInteract.getTokenInfo(t.getAddress())
+                .subscribeOn(Schedulers.io())
+                .observeOn(Schedulers.io())
+                .subscribe(this::receiveTokenInfo, this::onError);
+    }
+
+    private void receiveTokenInfo(TokenInfo tokenInfo)
+    {
+        if (tokenInfo.name != null)
+        {
+            //store token!
+            addTokenInteract.add(tokenInfo);
+        }
     }
 
     private void updateTokenBalances()

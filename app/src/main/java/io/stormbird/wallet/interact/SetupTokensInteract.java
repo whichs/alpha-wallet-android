@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.ERC875ContractTransaction;
+import io.stormbird.wallet.entity.NetworkInfo;
 import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.TokenInfo;
 import io.stormbird.wallet.entity.TokenTransaction;
@@ -149,6 +150,7 @@ public class SetupTokensInteract {
                     ct.setOperation(R.string.ticket_terminate_contract);
                     ct.name = thisTrans.to;
                     ct.setType(-2);
+                    if (token != null) token.markScheduledForTermination();
                     break;
                 case CONTRACT_CONSTRUCTOR:
                     ct.name = thisTrans.to;
@@ -160,6 +162,8 @@ public class SetupTokensInteract {
                     break;
                 case INVALID_OPERATION:
                     ct.setOperation(R.string.ticket_invalid_op);
+                    break;
+                case "transferFrom(address,address,uint256)":
                     break;
                 default:
                     ct.setOperation(R.string.ticket_invalid_op);
@@ -405,5 +409,10 @@ public class SetupTokensInteract {
             Log.d(TAG, "Re Processing " + processedTxList.size() + " : " + token.getFullName());
             return processedTxList.toArray(new Transaction[processedTxList.size()]);
         });
+    }
+
+    public void terminateToken(Token token, Wallet wallet, NetworkInfo network)
+    {
+        tokenRepository.terminateToken(token, wallet, network);
     }
 }
