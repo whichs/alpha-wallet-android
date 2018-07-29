@@ -108,6 +108,19 @@ public class AssetDefinitionService
         loadExternalContracts();
     }
 
+    public boolean hasDefinition(String contractAddress)
+    {
+        TokenDefinition d = getAssetDefinition(contractAddress.toLowerCase());
+        if (d != assetDefinition)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     /**
      * Get asset definition given contract address
      *

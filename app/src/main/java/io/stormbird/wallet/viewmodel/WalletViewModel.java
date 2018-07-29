@@ -9,6 +9,8 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -63,6 +65,8 @@ public class WalletViewModel extends BaseViewModel {
     private final FindDefaultWalletInteract findDefaultWalletInteract;
     private final GetDefaultWalletBalance getDefaultWalletBalance;
     private final AssetDefinitionService assetDefinitionService;
+
+    private final static boolean HIDE_NON_XML_TOKENS = true;
 
     private Token[] tokenCache = null;
     private boolean isVisible = false;
@@ -152,7 +156,19 @@ public class WalletViewModel extends BaseViewModel {
 
     private void onTokens(Token[] tokens)
     {
-        tokenCache = tokens;
+        if (HIDE_NON_XML_TOKENS)
+        {
+            List<Token> formList = new ArrayList<>();
+            for (Token t : tokens)
+            {
+                if (assetDefinitionService.hasDefinition(t.getAddress()) || t.isEthereum()) formList.add(t);
+            }
+            tokenCache = formList.toArray(new Token[formList.size()]);
+        }
+        else
+        {
+            tokenCache = tokens;
+        }
     }
 
     private void onFetchTokensCompletable()
@@ -183,7 +199,17 @@ public class WalletViewModel extends BaseViewModel {
 
     private void onTokenBalanceUpdate(Token token)
     {
-        tokenUpdate.postValue(token);
+        if (HIDE_NON_XML_TOKENS)
+        {
+            if (assetDefinitionService.hasDefinition(token.getAddress()) || token.isEthereum())
+            {
+                tokenUpdate.postValue(token);
+            }
+        }
+        else
+        {
+            tokenUpdate.postValue(token);
+        }
         //TODO: Calculate total value including token value received from token tickers
         //TODO: Then display the total value of everything at the top of the list in a special holder
     }
