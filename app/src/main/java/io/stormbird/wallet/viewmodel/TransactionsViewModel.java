@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.stormbird.wallet.entity.NetworkInfo;
 import io.stormbird.wallet.entity.Token;
@@ -287,6 +289,8 @@ public class TransactionsViewModel extends BaseViewModel
         txArray = txMap.values().toArray(new Transaction[txMap.size()]);
         transactionCount += txArray.length;
 
+        final ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(2);
+
         //Fetch all stored tokens, but no ethd
         //TODO: after the map addTokenToChecklist stage we should be using a reduce instead of filtering in the fetch function
         fetchTransactionDisposable = fetchTokensInteract
@@ -296,7 +300,7 @@ public class TransactionsViewModel extends BaseViewModel
                 .flatMap(tokenTransactions -> setupTokensInteract.processTokenTransactions(defaultWallet().getValue(), tokenTransactions)) //process these into a map
                 .flatMap(transactions -> fetchTransactionsInteract.storeTransactionsObservable(network.getValue(), wallet.getValue(), transactions))
                 .flatMap(this::removeFromMap)
-                .subscribeOn(Schedulers.newThread())
+                .subscribeOn(Schedulers.from(threadPoolExecutor))
                 .subscribe(this::updateDisplay, this::onError, this::siftUnknownTransactions);
     }
 
