@@ -494,53 +494,60 @@ public class TokenRepository implements TokenRepositoryType {
      * @return
      */
     private Single<Token> updateBalance(NetworkInfo network, Wallet wallet, final Token token) {
-        return Single.fromCallable(() -> {
-            TokenFactory tFactory = new TokenFactory();
-            try
-            {
-                if (token.isEthereum())
+        if (token.isEthereum())
+        {
+            return attachEth(network, wallet);
+        }
+        else
+        {
+            return Single.fromCallable(() -> {
+                TokenFactory tFactory = new TokenFactory();
+                try
                 {
-                    return token; //already have the balance for ETH
-                }
-                List<BigInteger> balanceArray = null;
-                List<Integer> burnArray = null;
-                BigDecimal balance = null;
-                if (token.tokenInfo.isStormbird)
-                {
-                    Ticket t = (Ticket) token;
-                    balanceArray = getBalanceArray(wallet, t.tokenInfo);
-                    burnArray = t.getBurnList();
-                }
-                else
-                {
-                    balance = getBalance(wallet, token.tokenInfo);
-                }
+                    if (token.isEthereum())
+                    {
 
-                  //This code, together with an account with many tokens on it thrashes the Token view update
+                    }
+                    List<BigInteger> balanceArray = null;
+                    List<Integer> burnArray = null;
+                    BigDecimal balance = null;
+                    if (token.tokenInfo.isStormbird)
+                    {
+                        Ticket t = (Ticket) token;
+                        balanceArray = getBalanceArray(wallet, t.tokenInfo);
+                        burnArray = t.getBurnList();
+                    }
+                    else
+                    {
+                        balance = getBalance(wallet, token.tokenInfo);
+                    }
+
+                    //This code, together with an account with many tokens on it thrashes the Token view update
 //                if (Math.random() > 0.5)
 //                {
 //                    throw new BadContract();
 //                }
 
-                Token updated = tFactory.createToken(token.tokenInfo, balance, balanceArray, burnArray, System.currentTimeMillis());
-                localSource.updateTokenBalance(network, wallet, updated);
-                return updated;
-            }
-            catch (BadContract e)
-            {
-                //this doesn't mean the token is dead. Just try again
-                //did we previously have a balance?
-                return token;
+                    Token updated = tFactory.createToken(token.tokenInfo, balance, balanceArray, burnArray, System.currentTimeMillis());
+                    localSource.updateTokenBalance(network, wallet, updated);
+                    return updated;
+                }
+                catch (BadContract e)
+                {
+                    //this doesn't mean the token is dead. Just try again
+                    //did we previously have a balance?
+                    return token;
 //                Token updated = tFactory.createToken(token.tokenInfo, BigDecimal.ZERO, new ArrayList<BigInteger>(), null, System.currentTimeMillis());
 //                localSource.updateTokenDestroyed(network, wallet, updated);
 //                return updated;
-            }
-            catch (Exception e)
-            {
-                e.printStackTrace();
-                return token;
-            }
-        });
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                    return token;
+                }
+            });
+        }
     }
 
     private ObservableTransformer<Token, Token> updateBalance(NetworkInfo network, Wallet wallet) {

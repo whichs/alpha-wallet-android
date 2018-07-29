@@ -62,6 +62,11 @@ public class EtherscanTransaction
 	 * anyway.
          */
 
+        if (input != null && input.length() > 2 && (input.contains("0xbb6e7de9") || input.contains("0xdba5e917")))
+        {
+            System.out.print("yoless");
+        }
+
         if (internal)
         {
             o = new TransactionOperation[1];

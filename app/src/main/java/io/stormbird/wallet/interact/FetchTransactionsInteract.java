@@ -38,8 +38,8 @@ public class FetchTransactionsInteract {
 
     public Observable<TokenTransaction[]> fetch(Wallet wallet, Token t) {
         return transactionRepository
-                .fetchTokenTransaction(wallet, t)
-                .subscribeOn(Schedulers.io());
+                .fetchTokenTransaction(wallet, t);
+                //.subscribeOn(Schedulers.io());
     }
 
     public Observable<Transaction[]> fetchNetworkTransactions(Wallet wallet, long lastBlock) {

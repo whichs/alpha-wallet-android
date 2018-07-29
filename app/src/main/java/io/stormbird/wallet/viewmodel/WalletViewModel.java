@@ -18,6 +18,7 @@ import javax.xml.XMLConstants;
 
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.internal.operators.observable.ObservableError;
 import io.reactivex.schedulers.Schedulers;
@@ -38,6 +39,7 @@ import io.stormbird.wallet.router.AssetDisplayRouter;
 import io.stormbird.wallet.router.ChangeTokenCollectionRouter;
 import io.stormbird.wallet.router.SendTokenRouter;
 import io.stormbird.wallet.service.AssetDefinitionService;
+import io.stormbird.wallet.service.TokensService;
 
 import static io.stormbird.wallet.C.ErrorCode.EMPTY_COLLECTION;
 
@@ -67,6 +69,9 @@ public class WalletViewModel extends BaseViewModel {
     private final FindDefaultWalletInteract findDefaultWalletInteract;
     private final GetDefaultWalletBalance getDefaultWalletBalance;
     private final AssetDefinitionService assetDefinitionService;
+    private final TokensService tokensService;
+
+    private CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     private Token[] tokenCache = null;
     private boolean isVisible = false;
@@ -87,7 +92,8 @@ public class WalletViewModel extends BaseViewModel {
             GetDefaultWalletBalance getDefaultWalletBalance,
             AddTokenInteract addTokenInteract,
             SetupTokensInteract setupTokensInteract,
-            AssetDefinitionService assetDefinitionService) {
+            AssetDefinitionService assetDefinitionService,
+            TokensService tokensService) {
         this.fetchTokensInteract = fetchTokensInteract;
         this.addTokenRouter = addTokenRouter;
         this.sendTokenRouter = sendTokenRouter;
@@ -99,6 +105,7 @@ public class WalletViewModel extends BaseViewModel {
         this.addTokenInteract = addTokenInteract;
         this.setupTokensInteract = setupTokensInteract;
         this.assetDefinitionService = assetDefinitionService;
+        this.tokensService = tokensService;
     }
 
     public LiveData<Token[]> tokens() {
@@ -121,6 +128,8 @@ public class WalletViewModel extends BaseViewModel {
         {
             updateTokens.dispose();
         }
+
+        compositeDisposable.dispose();
     }
 
     //we changed wallets or network, ensure we clean up before displaying new data
@@ -135,6 +144,9 @@ public class WalletViewModel extends BaseViewModel {
         {
             fetchTokenBalanceDisposable.dispose();
         }
+
+        compositeDisposable.dispose();
+        tokensService.clearTokens();
 
         fetchTokens();
     }
@@ -157,6 +169,7 @@ public class WalletViewModel extends BaseViewModel {
     private void onTokens(Token[] tokens)
     {
         tokenCache = tokens;
+        tokensService.addTokens(tokens);
     }
 
     private void onFetchTokensCompletable()
@@ -174,18 +187,11 @@ public class WalletViewModel extends BaseViewModel {
             updateTokenBalances();
         }
 
-        disposable = fetchTokensInteract.fetchSequential(defaultWallet.getValue())
+        disposable = Observable.fromCallable(tokensService::getAllTokens)
+                .flatMapIterable(token -> token)
                 .filter(token -> (token.tokenInfo.name == null && !token.isTerminated()))
+                .flatMap(token-> fetchTokensInteract.getTokenInfo(token.getAddress()))
                 .subscribeOn(Schedulers.io())
-                .subscribe(this::reFetchToken, this::onError);
-    }
-
-    private void reFetchToken(Token t)
-    {
-        //fetch token info
-        Disposable d = fetchTokensInteract.getTokenInfo(t.getAddress())
-                .subscribeOn(Schedulers.io())
-                .observeOn(Schedulers.io())
                 .subscribe(this::receiveTokenInfo, this::onError);
     }
 
@@ -194,15 +200,26 @@ public class WalletViewModel extends BaseViewModel {
         if (tokenInfo.name != null)
         {
             //store token!
-            addTokenInteract.add(tokenInfo);
+            Disposable d = addTokenInteract.add(tokenInfo)
+                    .subscribe(tokensService::addToken);
+
+            compositeDisposable.add(d);
         }
+    }
+
+    private Observable<List<Token>> getTokens()
+    {
+        return Observable.fromCallable(tokensService::getAllTokens);
     }
 
     private void updateTokenBalances()
     {
         fetchTokenBalanceDisposable = Observable.interval(0, GET_BALANCE_INTERVAL, TimeUnit.SECONDS)
-                .doOnNext(l -> getWallet()
-                        .flatMap(fetchTokensInteract::fetchSequential)
+                .doOnNext(l -> Observable.fromCallable(tokensService::getAllTokens)
+                        .flatMapIterable(token -> token)
+                        .filter(token -> token.tokenInfo.name != null)
+                        .flatMap(token -> fetchTokensInteract.updateBalance(defaultWallet.getValue(), token))
+                        //.flatMap(fetchTokensInteract::fetchSequential)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(this::onTokenBalanceUpdate, this::onError, this::onFetchTokensBalanceCompletable)).subscribe();
@@ -211,6 +228,7 @@ public class WalletViewModel extends BaseViewModel {
     private void onTokenBalanceUpdate(Token token)
     {
         tokenUpdate.postValue(token);
+        tokensService.addToken(token);
         //TODO: Calculate total value including token value received from token tickers
         //TODO: Then display the total value of everything at the top of the list in a special holder
     }
@@ -372,6 +390,7 @@ public class WalletViewModel extends BaseViewModel {
 
     private void finishedImport(Token token)
     {
+        tokensService.addToken(token);
         Log.d("WVM", "Added " + token.tokenInfo.name);
     }
 }

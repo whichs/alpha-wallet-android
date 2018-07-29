@@ -32,8 +32,6 @@ public class Token implements Parcelable
     public boolean balanceIsLive = false;
     public boolean isERC20 = false; //TODO: when we see ERC20 functions in transaction decoder switch this on
     private boolean isEth = false;
-    private boolean isTerminated = false;
-    private boolean scheduleForTermination = false;
 
     public TokenTicker ticker;
 
@@ -41,20 +39,12 @@ public class Token implements Parcelable
         this.tokenInfo = tokenInfo;
         this.balance = balance;
         this.updateBlancaTime = updateBlancaTime;
-        if (updateBlancaTime == -1)
-        {
-            isTerminated = true;
-        }
     }
 
     protected Token(Parcel in) {
         tokenInfo = in.readParcelable(TokenInfo.class.getClassLoader());
         balance = new BigDecimal(in.readString());
         updateBlancaTime = in.readLong();
-        if (updateBlancaTime == -1)
-        {
-            isTerminated = true;
-        }
     }
 
     public String getStringBalance() {
@@ -115,8 +105,6 @@ public class Token implements Parcelable
     public void setIsTerminated(RealmToken realmToken)
     {
         realmToken.setUpdatedTime(-1);
-        isTerminated = true;
-        scheduleForTermination = false;
     }
 
     public String getAddress() {
@@ -326,9 +314,7 @@ public class Token implements Parcelable
         return (tokenInfo != null && tokenInfo.symbol != null && isEth);
     }
 
-    public boolean isTerminated() { return isTerminated; }
-    public void markScheduledForTermination() { scheduleForTermination = true; }
-    public boolean isScheduledForTermination() { return scheduleForTermination; }
+    public boolean isTerminated() { return (updateBlancaTime == -1); }
 
     public boolean isBad()
     {
