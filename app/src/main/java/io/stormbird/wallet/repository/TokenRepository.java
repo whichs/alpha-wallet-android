@@ -24,6 +24,7 @@ import org.web3j.abi.EventEncoder;
 import org.web3j.abi.EventValues;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.FunctionReturnDecoder;
+import org.web3j.abi.TypeDecoder;
 import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Bool;
@@ -303,6 +304,16 @@ public class TokenRepository implements TokenRepositoryType {
                 .toObservable();
     }
 
+    @Override
+    public Observable<Token> fetchActiveDefaultTokenBalance(Token token)
+    {
+        NetworkInfo network = ethereumNetworkRepository.getDefaultNetwork();
+        return walletRepository.getDefaultWallet()
+                .flatMap(wallet -> updateBalance(network, wallet, token))
+                .observeOn(Schedulers.newThread())
+                .toObservable();
+    }
+
     private Observable<Token> fetchBalance(String walletAddress, Token token)
     {
         NetworkInfo network = ethereumNetworkRepository.getDefaultNetwork();
@@ -504,10 +515,6 @@ public class TokenRepository implements TokenRepositoryType {
                 TokenFactory tFactory = new TokenFactory();
                 try
                 {
-                    if (token.isEthereum())
-                    {
-
-                    }
                     List<BigInteger> balanceArray = null;
                     List<Integer> burnArray = null;
                     BigDecimal balance = null;
@@ -558,7 +565,7 @@ public class TokenRepository implements TokenRepositoryType {
             BigDecimal balance = null;
             List<BigInteger> balanceArray = null;
             List<Integer> burnArray = null;
-            if (token.balance == null || token.updateBlancaTime < minUpdateBalanceTime) {
+            if (token.balance == null || (token.getUpdateBlancaTime() < minUpdateBalanceTime && token.getUpdateBlancaTime() > 0)) {
                 try {
                     if (token.tokenInfo.isStormbird)
                     {
@@ -692,9 +699,43 @@ public class TokenRepository implements TokenRepositoryType {
 
         List<Type> response = FunctionReturnDecoder.decode(responseValue, function.getOutputParameters());
         if (response.size() == 1) {
-            return new BigDecimal(((Uint256) response.get(0)).getValue());
+            BigDecimal retVal = new BigDecimal(((Uint256) response.get(0)).getValue());
+            if (retVal.equals(BigDecimal.valueOf(32)))
+            {
+                return checkValue(retVal, wallet, responseValue);
+            }
+            else
+            {
+                return retVal;
+            }
+
         } else {
             return null;
+        }
+    }
+
+    /**
+     * This function checks for suspicious contracts. If the value of tokens is 32, this could be an array return.
+     * Parsing the returned value with DynamicArray, if it is an array spec (ie 0x02, then array size etc) then
+     * we can remove this token. However it would be better to display the token as a ticket if the array balance has elements.
+     * @param value
+     * @param wallet
+     * @param responseValue
+     * @return
+     */
+    private BigDecimal checkValue(BigDecimal value, Wallet wallet, String responseValue)
+    {
+        org.web3j.abi.datatypes.Function functionCheck = balanceOfArray(wallet.address);
+        List<Type> values = FunctionReturnDecoder.decode(responseValue, functionCheck.getOutputParameters());
+        //is it an array?
+        if (values.isEmpty()) return value;
+        else if (values.size() > 0)
+        {
+            return BigDecimal.ZERO;
+        }
+        else
+        {
+            return value;
         }
     }
 

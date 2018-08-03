@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import io.stormbird.token.tools.ParseMagicLink;
 import io.stormbird.wallet.entity.Token;
+import io.stormbird.wallet.entity.Wallet;
 import io.stormbird.wallet.interact.FetchTokensInteract;
 import io.stormbird.wallet.repository.TokenRepositoryType;
 
@@ -50,6 +52,39 @@ public class TokensService
     public List<Token> getAllTokens()
     {
         return new ArrayList<Token>(tokenMap.values());
+    }
+
+    public List<Token> getAllNonNullNonTerminatedTokens()
+    {
+        List<Token> tokens = new ArrayList<>();
+        for (Token t : tokenMap.values())
+        {
+            if (!t.isTerminated() && t.tokenInfo.name != null) tokens.add(t);
+        }
+
+        return tokens;
+    }
+
+    public List<Token> getAllTerminated()
+    {
+        List<Token> tokens = new ArrayList<>();
+        for (Token t : tokenMap.values())
+        {
+            if (t.isTerminated()) tokens.add(t);
+        }
+
+        return tokens;
+    }
+
+    public List<Token> getAllNullNonterminatedTokens()
+    {
+        List<Token> tokens = new ArrayList<>();
+        for (Token t : tokenMap.values())
+        {
+            if (!t.isTerminated() && t.tokenInfo.name == null) tokens.add(t);
+        }
+
+        return tokens;
     }
 
     public void scheduleForTermination(String address)

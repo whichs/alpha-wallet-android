@@ -121,6 +121,13 @@ public class FetchTokensInteract {
                 .observeOn(AndroidSchedulers.mainThread());
     }
 
+    public Observable<Token> updateDefaultBalance(Token token)
+    {
+        return tokenRepository.fetchActiveDefaultTokenBalance(token)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
+
     public Observable<OrderContractAddressPair> updateBalancePair(Token token, MagicLinkData order)
     {
         return tokenRepository.fetchActiveTokenBalance(order.ownerAddress, token)

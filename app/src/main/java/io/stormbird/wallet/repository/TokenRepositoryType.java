@@ -30,6 +30,7 @@ public interface TokenRepositoryType {
     Observable<Token> fetchActiveSingle(String walletAddress, Token token);
     Observable<Token> fetchCachedSingleToken(String walletAddress, String tokenAddress);
     Observable<Token> fetchActiveTokenBalance(String walletAddress, Token token);
+    Observable<Token> fetchActiveDefaultTokenBalance(Token token);
     Observable<Token[]> fetchAll(String walletAddress);
     Observable<List<Token>> fetchStoredEnabledTokensList(NetworkInfo network, Wallet wallet);
     Completable setEnable(Wallet wallet, Token token, boolean isEnabled);

@@ -152,7 +152,7 @@ public class SetupTokensInteract {
                     ct.setOperation(R.string.ticket_terminate_contract);
                     ct.name = thisTrans.to;
                     ct.setType(-2);
-                    if (token != null) tokensService.scheduleForTermination(token.getAddress());
+                    if (token != null && !token.isTerminated()) tokensService.scheduleForTermination(token.getAddress());
                     break;
                 case CONTRACT_CONSTRUCTOR:
                     ct.name = thisTrans.to;
@@ -198,9 +198,9 @@ public class SetupTokensInteract {
     {
         if (token != null)
         {
-            if (token.isBad())
+            if (token.isTerminated() || token.isBad())
             {
-                ct.name = "";// EXPIRED_CONTRACT; //re-processing a contract that's been killed.
+                ct.name = "";//EXPIRED_CONTRACT; //re-processing a contract that's been killed.
             }
             else
             {
