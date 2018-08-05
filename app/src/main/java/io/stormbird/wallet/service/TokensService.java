@@ -13,16 +13,8 @@ import io.stormbird.wallet.repository.TokenRepositoryType;
 
 public class TokensService
 {
-    //private final FetchTokensInteract fetchTokensInteract;
-    //private final TokenRepositoryType tokenRepository;
-
-    //stores all the tokens
     private Map<String, Token> tokenMap = new ConcurrentHashMap<>();
     private List<String> terminationList = new ArrayList<>();
-
-//    public TokensService(TokenRepositoryType tokenRepository) {
-//        this.tokenRepository = tokenRepository;
-//    }
 
     public TokensService() {
 
@@ -54,34 +46,12 @@ public class TokensService
         return new ArrayList<Token>(tokenMap.values());
     }
 
-    public List<Token> getAllNonNullNonTerminatedTokens()
+    public List<Token> getAllLiveTokens()
     {
         List<Token> tokens = new ArrayList<>();
         for (Token t : tokenMap.values())
         {
             if (!t.isTerminated() && t.tokenInfo.name != null) tokens.add(t);
-        }
-
-        return tokens;
-    }
-
-    public List<Token> getAllTerminated()
-    {
-        List<Token> tokens = new ArrayList<>();
-        for (Token t : tokenMap.values())
-        {
-            if (t.isTerminated()) tokens.add(t);
-        }
-
-        return tokens;
-    }
-
-    public List<Token> getAllNullNonterminatedTokens()
-    {
-        List<Token> tokens = new ArrayList<>();
-        for (Token t : tokenMap.values())
-        {
-            if (!t.isTerminated() && t.tokenInfo.name == null) tokens.add(t);
         }
 
         return tokens;

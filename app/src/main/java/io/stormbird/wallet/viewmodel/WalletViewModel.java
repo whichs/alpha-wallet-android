@@ -159,14 +159,6 @@ public class WalletViewModel extends BaseViewModel {
                         .subscribeOn(Schedulers.newThread())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(this::onTokens, this::onError, this::onFetchTokensCompletable);
-
-//        updateTokens = Observable.interval(0, GET_BALANCE_INTERVAL*5, TimeUnit.SECONDS)
-//                .doOnNext(l -> getWallet()
-//                        .map(this::updateWallet)
-//                        .flatMap(fetchTokensInteract::fetchStoredWithEth)
-//                        .subscribeOn(Schedulers.newThread())
-//                        .observeOn(AndroidSchedulers.mainThread())
-//                        .subscribe(this::onTokens, this::onError, this::onFetchTokensCompletable)).subscribe();
     }
 
     private void onTokens(Token[] tokens)
@@ -192,7 +184,7 @@ public class WalletViewModel extends BaseViewModel {
 
         // Check contracts that returned a null but we didn't see them destroyed yet.
         // Sometimes the network times out or some other issue.
-        Disposable d = Observable.fromCallable(tokensService::getAllNullNonterminatedTokens)
+        Disposable d = Observable.fromCallable(tokensService::getAllTokens)
                 .flatMapIterable(token -> token)
                 .filter(token -> (token.tokenInfo.name == null && !token.isTerminated()))
                 .flatMap(token-> fetchTokensInteract.getTokenInfo(token.getAddress()))
@@ -217,11 +209,10 @@ public class WalletViewModel extends BaseViewModel {
     private void updateTokenBalances()
     {
         fetchTokenBalanceDisposable = Observable.interval(0, GET_BALANCE_INTERVAL, TimeUnit.SECONDS)
-                .doOnNext(l -> Observable.fromCallable(tokensService::getAllNonNullNonTerminatedTokens)
+                .doOnNext(l -> Observable.fromCallable(tokensService::getAllTokens)
                         .flatMapIterable(token -> token)
-                        .filter(token -> token.tokenInfo.name != null)
+                        .filter(token -> (token.tokenInfo.name != null && !token.isTerminated()))
                         .flatMap(fetchTokensInteract::updateDefaultBalance)
-                        //.flatMap(fetchTokensInteract::fetchSequential)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(this::onTokenBalanceUpdate, this::onError, this::onFetchTokensBalanceCompletable)).subscribe();

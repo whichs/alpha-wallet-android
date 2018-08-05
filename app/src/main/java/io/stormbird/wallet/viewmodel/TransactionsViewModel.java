@@ -307,7 +307,7 @@ public class TransactionsViewModel extends BaseViewModel
         //TODO: after the map addTokenToChecklist stage we should be using a reduce instead of filtering in the fetch function
         fetchTransactionDisposable = fetchTokensInteract
                 .fetchSequentialNoEth(wallet.getValue())
-                .filter(token -> !token.isTerminated())
+                .filter(token -> (!token.isTerminated() && token.tokenInfo.name != null)) //don't update dead or potentially dead contracts
                 .map(this::addTokenToChecklist)
                 .flatMap(token -> fetchTransactionsInteract.fetch(new Wallet(token.tokenInfo.address), token)) //single that fetches all the tx's from etherscan for each token from fetchSequential
                 .flatMap(tokenTransactions -> setupTokensInteract.processTokenTransactions(defaultWallet().getValue(), tokenTransactions, tokensService)) //process these into a map
@@ -315,21 +315,6 @@ public class TransactionsViewModel extends BaseViewModel
                 .flatMap(this::removeFromMap)
                 .subscribeOn(Schedulers.from(threadPoolExecutor))
                 .subscribe(this::updateDisplay, this::onError, this::siftUnknownTransactions);
-
-
-//        fetchTransactionDisposable = Observable.fromCallable(tokensService::getAllTokens)
-//                .flatMapIterable(token -> token)
-//                .map(this::addTokenToChecklist)
-//                //.filter(token -> (!token.isEthereum() && !token.isTerminated()))
-//                //fetchTokensInteract
-//                //.fetchSequentialNoEth(wallet.getValue())
-//                .flatMap(token -> fetchTransactionsInteract.fetch(new Wallet(token.tokenInfo.address), token)) //single that fetches all the tx's from etherscan for each token from fetchSequential
-//                .flatMap(tokenTransactions -> setupTokensInteract.processTokenTransactions(defaultWallet().getValue(), tokenTransactions, tokensService)) //process these into a map
-//                .flatMap(transactions -> fetchTransactionsInteract.storeTransactionsObservable(network.getValue(), wallet.getValue(), transactions))
-//                .flatMap(this::removeFromMap)
-//                .subscribeOn(Schedulers.io())
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .subscribe(this::updateDisplay, this::onError, this::siftUnknownTransactions);
     }
 
     private Token addTokenToChecklist(Token token)
