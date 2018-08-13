@@ -20,6 +20,7 @@ import io.stormbird.wallet.ui.SellDetailActivity;
 import io.stormbird.wallet.ui.SellTicketActivity;
 import io.stormbird.wallet.ui.SendActivity;
 import io.stormbird.wallet.ui.SettingsActivity;
+import io.stormbird.wallet.ui.SpawnTokenDisplayActivity;
 import io.stormbird.wallet.ui.SplashActivity;
 import io.stormbird.wallet.ui.TokenChangeCollectionActivity;
 import io.stormbird.wallet.ui.TokensActivity;
@@ -96,6 +97,10 @@ public abstract class BuildersModule {
 	@ActivityScope
 	@ContributesAndroidInjector(modules = MarketBrowseModule.class)
 	abstract BrowseMarketActivity bindMarketBrowseActivity();
+
+	@ActivityScope
+	@ContributesAndroidInjector(modules = SpawnTokenDisplayModule.class)
+	abstract SpawnTokenDisplayActivity bindSpawnTokenDisplayActivity();
 
 	@ActivityScope
 	@ContributesAndroidInjector(modules = SellDetailModule.class)
