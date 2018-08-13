@@ -519,12 +519,14 @@ public class Ticket extends Token implements Parcelable
 
             String venueStr = nonFungibleToken.getAttribute("venue").text;
             String nameStr = getTokenTitle(nonFungibleToken); //nonFungibleToken.getAttribute("category").text;
-
             String seatCount = String.format(Locale.getDefault(), "x%d", range.tokenIds.size());
 
             name.setText(nameStr);
             amount.setText(seatCount);
             venue.setText(venueStr);
+
+
+
 
             String countryA = nonFungibleToken.getAttribute("countryA").text;
             String countryB = nonFungibleToken.getAttribute("countryB").text;
@@ -542,6 +544,11 @@ public class Ticket extends Token implements Parcelable
 
             if (catTxt.equals("0"))
             {
+                catLayout.setVisibility(View.GONE);
+            }
+            else if (catTxt.equals("-1"))
+            {
+                amount.setVisibility(View.GONE);
                 catLayout.setVisibility(View.GONE);
             }
             else

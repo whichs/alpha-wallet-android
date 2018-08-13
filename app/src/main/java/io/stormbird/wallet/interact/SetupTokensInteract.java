@@ -161,8 +161,11 @@ public class SetupTokensInteract {
                 case INVALID_OPERATION:
                     ct.setOperation(R.string.ticket_invalid_op);
                     break;
+                case "issuePassTo(uint256,uint256,uint8,bytes32,bytes32,address)":
+                    ct.symbol = token.tokenInfo.symbol;
+                    break;
                 default:
-                    ct.setOperation(R.string.ticket_invalid_op);
+                    //ct.setOperation(R.string.ticket_invalid_op);
                     break;
             }
 

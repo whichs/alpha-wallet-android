@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:custom="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/colorPrimaryDark"
@@ -128,6 +129,26 @@
                     android:textSize="21sp" />
 
             </LinearLayout>
+
+            <io.stormbird.wallet.widget.InputView
+                android:id="@+id/input_message"
+                android:visibility="gone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
+                custom:label="@string/hint_token_message" />
+
+            <TextView
+                android:id="@+id/textLimit"
+                android:visibility="gone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="5dp"
+                android:fontFamily="@font/font_semibold"
+                android:text="Message Limit: 32 chars"
+                android:textColor="@color/text_black"
+                android:textSize="12sp" />
 
         </LinearLayout>
 

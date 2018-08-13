@@ -237,7 +237,8 @@ public class TransactionDecoder
             "approve(address,uint256)",
             "loadNewTickets(bytes32[])",
             "passTo(uint256,uint16[],uint8,bytes32,bytes32,address)",
-            "endContract()"
+            "endContract()",
+            "issuePassTo(uint256,uint256,uint8,bytes32,bytes32,address)"
             };
 
     static final boolean[] HAS_SIG = {
@@ -249,7 +250,8 @@ public class TransactionDecoder
             false,
             false,
             true,
-            false
+            false,
+            true
     };
 
     static final int ERC20 = 1;
@@ -265,7 +267,8 @@ public class TransactionDecoder
             ERC20,
             ERC875,
             ERC875,
-            CREATION
+            CREATION,
+            ERC875
     };
 
     private FunctionData getArgs(String methodSig)

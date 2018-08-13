@@ -18,7 +18,6 @@ import static io.stormbird.wallet.entity.TransactionOperation.ERC875_CONTRACT_TY
 //TODO: there should be an abstract base class, all contracts inherit from it, only contains address, name and symbol
 public class ERC875ContractTransaction extends TransactionContract implements Parcelable {
     public String balance;
-    public String symbol;
     public int operation;
     public String otherParty;
     public List<Integer> indices;
@@ -32,6 +31,7 @@ public class ERC875ContractTransaction extends TransactionContract implements Pa
 
     public ERC875ContractTransaction()
     {
+        super();
         address = "";
         name = "";
         balance = "";

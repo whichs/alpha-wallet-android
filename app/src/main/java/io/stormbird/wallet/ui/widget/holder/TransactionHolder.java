@@ -157,6 +157,9 @@ public class TransactionHolder extends BinderViewHolder<Transaction> implements 
             case R.string.ticket_load_new_tickets:
                 ticketMove = "x" + operation.value + " " + getString(R.string.tickets);
                 break;
+            case R.string.ticket_issue_passto:
+                ticketMove = "x1" + " " + ct.symbol;
+                break;
             default:
                 break;
         }

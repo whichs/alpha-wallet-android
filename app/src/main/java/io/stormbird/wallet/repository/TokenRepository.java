@@ -999,6 +999,29 @@ public class TokenRepository implements TokenRepositoryType {
         return function;
     }
 
+    public static byte[] createCustomSpawnTrade(BigInteger expiry, String message, int v, byte[] r, byte[] s, String to)
+    {
+        byte[] byteMessage = message.getBytes();
+        BigInteger bIMessage = new BigInteger(byteMessage);
+        Function function = getCustomSpawnCreateFunction(expiry, bIMessage, v, r, s, to);
+        String encodedFunction = FunctionEncoder.encode(function);
+        return Numeric.hexStringToByteArray(Numeric.cleanHexPrefix(encodedFunction));
+    }
+
+    private static Function getCustomSpawnCreateFunction(BigInteger expiry, BigInteger message, int v, byte[] r, byte[] s, String to)
+    {
+        Function function = new Function(
+                "issuePassTo",
+                Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Uint256(message),
+                                    new org.web3j.abi.datatypes.generated.Uint256(expiry),
+                                    new org.web3j.abi.datatypes.generated.Uint8(v),
+                                    new org.web3j.abi.datatypes.generated.Bytes32(r),
+                                    new org.web3j.abi.datatypes.generated.Bytes32(s),
+                                    new Address(to)),
+                Collections.<TypeReference<?>>emptyList());
+        return function;
+    }
+
     private Token[] mapToTokens(TokenInfo[] items) {
         int len = items.length;
         Token[] tokens = new Token[len];

@@ -325,4 +325,9 @@
     <string name="explain_xml_override">Enable XML override will create a directory \'AlphaWallet\' in your phone storage. Token config files (XML) can be dropped into this directory which will override default or network Token configs.</string>
     <string name="ask_user_about_xml_override">Do you wish to enable Token config override directory?</string>
     <string name="label_contract">contract</string>
+    <string name="factory">Factory</string>
+    <string name="hint_token_message">Token Message</string>
+    <string name="create">Create</string>
+    <string name="ticket_issue_passto">Issue Custom Spawnable</string>
+    <string name="title_spawn_tokens">Show Tokens</string>
 </resources>

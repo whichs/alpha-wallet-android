@@ -154,6 +154,18 @@ public class EtherscanTransaction
                             ct.name = to;
                             ct.setType(-2);
                             break;
+                        case "issuePassTo(uint256,uint256,uint8,bytes32,bytes32,address)":
+                            o = processPassTo(f);
+                            op = o[0];
+                            op.from = from;
+                            op.to = f.getFirstAddress();
+                            op.transactionId = hash;
+                            ct = op.contract;
+                            //value in what?
+                            op.value = String.valueOf(f.getFirstValue());
+                            op.contract.setOperation(R.string.ticket_issue_passto);
+                            op.contract.setType(-3);
+                            break;
                         default:
                             break;
                     }

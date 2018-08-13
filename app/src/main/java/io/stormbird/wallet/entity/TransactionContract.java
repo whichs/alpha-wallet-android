@@ -83,11 +83,13 @@ public class TransactionContract implements Parcelable {
 
     }
 
+    //NB this function is overriden in ERC875ContractTransaction
     public void setOtherParty(String otherParty)
     {
 
     }
 
+    //NB this function is overriden in ERC875ContractTransaction
     public void setOperation(int operation)
     {
         if (operation == R.string.ticket_invalid_op)
@@ -96,11 +98,13 @@ public class TransactionContract implements Parcelable {
         }
     }
 
+    //NB this function is overriden in ERC875ContractTransaction
     public void interpretPassTo(String walletAddr, TransactionInput data)
     {
 
     }
 
+    //NB this function is overriden in ERC875ContractTransaction
     public void setType(int type)
     {
 
