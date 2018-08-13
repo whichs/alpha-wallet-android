@@ -50,6 +50,7 @@ public class TokenDefinition {
     protected String feemasterAPI = null;
     protected String tokenName = null;
     protected String keyName = null;
+    protected String customSpawn = null; //I don't like this - but it can't be an attribute
     protected int networkId = 1; //default to main net unless otherwise specified
 
     public enum Syntax {
@@ -286,6 +287,9 @@ public class TokenDefinition {
                 case "market-queue":
                     marketQueueAPI = getContentByTagName(feature, "gateway");
                     break;
+                case "custom-spawn":
+                    customSpawn = getContentByTagName(feature, "spawnmessage");
+                    break;
                 default:
                     break;
             }
@@ -325,6 +329,11 @@ public class TokenDefinition {
         }
     }
 
+    public boolean hasCustomSpawn()
+    {
+        return customSpawn != null;
+    }
+
     /* take a token ID in byte-32, find all the fields in it and call back
      * token.setField(fieldID, fieldName, text-value). This is abandoned
      * temporarily for the need to retrofit the class with J.B.'s design */
@@ -335,6 +344,46 @@ public class TokenDefinition {
             BigInteger val = tokenId.and(attr.bitmask).shiftRight(attr.bitshift);
             token.setAttribute(attr.id,
                     new NonFungibleToken.Attribute(attr.id, attr.name, val, attr.toString(val)));
+        }
+
+        if (customSpawn != null)
+        {
+            byte[] nullArray = new byte[1];
+            nullArray[0] = 0;
+            //name is the whole value
+            //convert tokenID to bytes
+            byte[] bMessage = tokenId.toByteArray();
+            //then convert to string
+            byte[] parsedMessage = null;
+            int pIndex = -1;
+
+            for (int m = 2; m < bMessage.length; m++)
+            {
+                if (pIndex >= 0)
+                {
+                    parsedMessage[m - pIndex] = bMessage[m];
+                }
+                else if (bMessage[m] != 0)
+                {
+                    parsedMessage = new byte[bMessage.length - m];
+                    pIndex = m;
+                    m--;
+                }
+            }
+
+            if (pIndex > -1)
+            {
+                String message = new String(parsedMessage);
+                token.setAttribute("category",
+                                   new NonFungibleToken.Attribute("category", "category", tokenId, message));
+
+                token.setAttribute("countryA",
+                                   new NonFungibleToken.Attribute("countryA", "countryA", BigInteger.ZERO, new String(nullArray)));
+                token.setAttribute("countryB",
+                                   new NonFungibleToken.Attribute("countryB", "countryB", BigInteger.ZERO, new String(nullArray)));
+                token.setAttribute("match",
+                                   new NonFungibleToken.Attribute("match", "match", BigInteger.valueOf(-1), "-1"));
+            }
         }
     }
 }
