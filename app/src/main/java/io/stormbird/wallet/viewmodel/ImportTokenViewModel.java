@@ -2,9 +2,11 @@ package io.stormbird.wallet.viewmodel;
 
 import android.arch.lifecycle.LiveData;
 import android.arch.lifecycle.MutableLiveData;
+import android.content.Context;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import io.stormbird.token.tools.Convert;
 import io.stormbird.token.tools.TokenDefinition;
 import io.stormbird.wallet.C;
 import io.stormbird.wallet.entity.CryptoFunctions;
@@ -24,11 +26,13 @@ import io.stormbird.wallet.interact.FindDefaultNetworkInteract;
 import io.stormbird.wallet.interact.FindDefaultWalletInteract;
 import io.stormbird.wallet.interact.SetupTokensInteract;
 import io.stormbird.wallet.repository.EthereumNetworkRepositoryType;
+import io.stormbird.wallet.router.SpawnTokenDisplayRouter;
 import io.stormbird.wallet.service.AssetDefinitionService;
 import io.stormbird.wallet.service.FeeMasterService;
 
 import org.web3j.tx.Contract;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +48,7 @@ import io.stormbird.token.entity.TicketRange;
 import io.stormbird.token.tools.ParseMagicLink;
 
 import static io.stormbird.wallet.C.ErrorCode.EMPTY_COLLECTION;
+import static io.stormbird.wallet.entity.MagicLinkParcel.generateCustomSpawnableTradeData;
 import static io.stormbird.wallet.entity.MagicLinkParcel.generateReverseTradeData;
 
 /**
@@ -64,6 +69,7 @@ public class ImportTokenViewModel extends BaseViewModel
     private final AddTokenInteract addTokenInteract;
     private final EthereumNetworkRepositoryType ethereumNetworkRepository;
     private final AssetDefinitionService assetDefinitionService;
+    private final SpawnTokenDisplayRouter spawnTokenDisplayRouter;
 
     private CryptoFunctions cryptoFunctions;
     private ParseMagicLink parser;
@@ -77,6 +83,7 @@ public class ImportTokenViewModel extends BaseViewModel
     private final MutableLiveData<Boolean> invalidLink = new MutableLiveData<>();
     private final MutableLiveData<String> checkContractNetwork = new MutableLiveData<>();
     private final MutableLiveData<Boolean> ticketNotValid = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> customSpawnToken = new MutableLiveData<>();
 
     private MagicLinkData importOrder;
     private String univeralImportLink;
@@ -97,7 +104,8 @@ public class ImportTokenViewModel extends BaseViewModel
                          FeeMasterService feeMasterService,
                          AddTokenInteract addTokenInteract,
                          EthereumNetworkRepositoryType ethereumNetworkRepository,
-                         AssetDefinitionService assetDefinitionService) {
+                         AssetDefinitionService assetDefinitionService,
+                         SpawnTokenDisplayRouter spawnTokenDisplayRouter) {
         this.findDefaultNetworkInteract = findDefaultNetworkInteract;
         this.findDefaultWalletInteract = findDefaultWalletInteract;
         this.createTransactionInteract = createTransactionInteract;
@@ -107,6 +115,7 @@ public class ImportTokenViewModel extends BaseViewModel
         this.addTokenInteract = addTokenInteract;
         this.ethereumNetworkRepository = ethereumNetworkRepository;
         this.assetDefinitionService = assetDefinitionService;
+        this.spawnTokenDisplayRouter = spawnTokenDisplayRouter;
     }
 
     private void initParser()
@@ -127,6 +136,7 @@ public class ImportTokenViewModel extends BaseViewModel
     public LiveData<Boolean> invalidLink() { return invalidLink; }
     public LiveData<String> checkContractNetwork() { return checkContractNetwork; }
     public LiveData<Boolean> ticketNotValid() { return ticketNotValid; }
+    public LiveData<Boolean> isCutomSpawnToken() { return customSpawnToken; }
     public double getUSDPrice() { return ethToUsd; };
 
     public void prepare(String importDataStr) {
@@ -187,7 +197,12 @@ public class ImportTokenViewModel extends BaseViewModel
         }
     }
 
-    public void switchNetwork(int newNetwork)
+    public void switchNetwork(Context ctx, int newNetwork)
+    {
+        switchNetworkInner(newNetwork);
+        loadToken(ctx);
+    }
+    private void switchNetworkInner(int newNetwork)
     {
         if (network.getValue() == null || network.getValue().chainId != newNetwork)
         {
@@ -202,14 +217,54 @@ public class ImportTokenViewModel extends BaseViewModel
                 }
             }
         }
-
-        loadToken();
     }
 
-    public void loadToken()
+    public void loadToken(Context ctx)
     {
-        fetchTokens();
-        getEthereumTicker(); //simultaneously fetch the current eth price
+        switch (importOrder.contractType)
+        {
+            case 0x01:
+                fetchTokens();
+                getEthereumTicker(); //simultaneously fetch the current eth price
+                break;
+            case 0x02:
+                //handle spawnable token
+                break;
+            case 0x03:
+                fetchTokens();
+                //handle spawnable customisable token
+                break;
+            case 0x04:
+                fetchTokensAtAddress(ctx);
+                break;
+        }
+    }
+
+    private void fetchTokensAtAddress(Context ctx)
+    {
+        //first change the network
+        int networkValue = Convert.fromWei(importOrder.priceWei.toString(), Convert.Unit.SZABO).intValue();
+        switchNetworkInner(networkValue);
+        //fetch all tokens from XML on this network at this address
+        //get all addresses
+        List<String> addresses = assetDefinitionService.getAllContracts(networkValue);
+
+        ArrayList<String> passList = new ArrayList<>();
+
+        for (String address : addresses)
+        {
+            if (assetDefinitionService.getAssetDefinition(address).hasCustomSpawn())
+            {
+                System.out.println("Addrs: " + address);
+                passList.add(address);
+            }
+        }
+
+        if (passList.size() > 0)
+        {
+            //now open ticket view showing all relevant spawn tokens at this address
+            spawnTokenDisplayRouter.open(ctx, passList, importOrder.contractAddress);
+        }
     }
 
     //2. Fetch all cached tokens and get eth price
@@ -293,8 +348,23 @@ public class ImportTokenViewModel extends BaseViewModel
         }
     }
 
-    //5. We have token information and balance. Check if the import order is still valid.
     private void updateToken()
+    {
+        switch (importOrder.contractType)
+        {
+            case 0x01:
+                updateStandardToken();
+                break;
+            case 0x02:
+                break;
+            case 0x03:
+                updateCustomSpawnToken();
+                break;
+        }
+    }
+
+    //5. We have token information and balance. Check if the import order is still valid.
+    private void updateStandardToken()
     {
         List<BigInteger> newBalance = new ArrayList<>();
         for (Integer index : importOrder.tickets) //SalesOrder tickets member contains the list of ticket indices we're importing
@@ -329,6 +399,22 @@ public class ImportTokenViewModel extends BaseViewModel
             }
             importRange.setValue(range);
             regularBalanceCheck();
+        }
+    }
+
+    //5. We have token information and balance. Check if the import order is still valid.
+    private void updateCustomSpawnToken()
+    {
+        long validTime = checkExpiry();
+
+        if (validTime < 0)
+        {
+            invalidTime.setValue((int)validTime);
+        }
+        else
+        {
+            //set to spawn!
+            customSpawnToken.postValue(true);
         }
     }
 
@@ -504,5 +590,28 @@ public class ImportTokenViewModel extends BaseViewModel
     public TokenDefinition getAssetDefinition(String address)
     {
         return assetDefinitionService.getAssetDefinition(address);
+    }
+
+    public void performCreateToken(String tokenMessage)
+    {
+        try
+        {
+            initParser();
+            MagicLinkData order = parser.parseUniversalLink(univeralImportLink);
+            //ok let's try to drive this guy through
+            final byte[] tradeData = generateCustomSpawnableTradeData(order, tokenMessage, wallet.getValue().address);
+            //now push the transaction
+            disposable = createTransactionInteract
+                    .create(wallet.getValue(), order.contractAddress, order.priceWei,
+                            Contract.GAS_PRICE, Contract.GAS_LIMIT, tradeData)
+                    .subscribe(this::onCreateTransaction, this::onError);
+
+            addTokenWatchToWallet();
+        }
+        catch (SalesOrderMalformed e)
+        {
+            e.printStackTrace(); // TODO: add user interface handling of the exception.
+            error.postValue(new ErrorEnvelope(EMPTY_COLLECTION, "Import Error."));
+        }
     }
 }

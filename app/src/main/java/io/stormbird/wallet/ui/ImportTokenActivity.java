@@ -20,6 +20,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
+import java.util.Date;
 
 import javax.inject.Inject;
 
@@ -29,6 +30,7 @@ import io.stormbird.token.entity.NonFungibleToken;
 import io.stormbird.token.entity.TicketRange;
 import io.stormbird.token.tools.ParseMagicLink;
 import io.stormbird.token.tools.TokenDefinition;
+import io.stormbird.token.util.ZonedDateTime;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Address;
 import io.stormbird.wallet.entity.CryptoFunctions;
@@ -70,6 +72,8 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
     private TextView textVerified;
     private TextView textUnverified;
     private RelativeLayout verifiedLayer;
+
+    io.stormbird.wallet.widget.InputView inputView;
 
     private LinearLayout costLayout;
     private int networkId = 0;
@@ -122,10 +126,81 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         viewModel.network().observe(this, this::onNetwork);
         viewModel.checkContractNetwork().observe(this, this::checkContractNetwork);
         viewModel.ticketNotValid().observe(this, this::onInvalidTicket);
+        viewModel.isCutomSpawnToken().observe(this, this::onCustomSpawnToken);
 
         ticketRange = null;
 
         Ticket.blankTicketHolder(R.string.loading,this);
+    }
+
+    private void onCustomSpawnToken(Boolean aBoolean)
+    {
+        setTicket(true, false, false);
+        //now override the items
+        MagicLinkData data = viewModel.getSalesOrder();
+        String title = viewModel.getAssetDefinition(data.contractAddress).getTokenName();
+        Button importTickets = findViewById(R.id.import_ticket);
+        importTickets.setVisibility(View.VISIBLE);
+        importTickets.setAlpha(1.0f);
+        importTickets.setText(R.string.create);
+        LinearLayout costLayout = findViewById(R.id.cost_layout);
+        inputView = findViewById(R.id.input_message);
+
+        View baseView = findViewById(android.R.id.content);
+
+        Ticket ticket = viewModel.getImportToken();
+        ticketRange = new TicketRange(BigInteger.ZERO, ticket.getAddress());
+
+        ticket.displayTicketHolder(ticketRange, baseView, viewModel.getAssetDefinitionService(), getBaseContext());
+        TextView amount = findViewById(R.id.amount);
+        TextView name = findViewById(R.id.name);
+        TextView venue = findViewById(R.id.venue);
+        TextView ticketDate = findViewById(R.id.date);
+        TextView ticketTime = findViewById(R.id.time);
+
+        amount.setVisibility(View.GONE);
+        String spawnName = ticket.getTokenName(viewModel.getAssetDefinitionService());
+        String factory = "";
+        if (viewModel.getAssetDefinitionService().hasDefinition(ticket.getAddress()))
+        {
+            factory = getString(R.string.factory);
+            spawnName = viewModel.getAssetDefinitionService().getAssetDefinition(ticket.getAddress()).getTokenName();
+            venue.setText(ticket.getFullName());
+        }
+
+        importTxt.setText("Ready to create custom " + spawnName);
+
+        DateFormat date = android.text.format.DateFormat.getLongDateFormat(this);
+        DateFormat time = android.text.format.DateFormat.getTimeFormat(this);
+
+        Date expireDate = new Date(data.expiry*1000);
+        ticketDate.setText(date.format(expireDate));
+        ticketTime.setText(time.format(expireDate));
+
+        name.setText(spawnName + " " + factory);
+
+        verifiedLayer.setVisibility(View.VISIBLE);
+
+        inputView.setVisibility(View.VISIBLE);
+
+        int contractNetworkId = viewModel.getAssetDefinitionService().getAssetDefinition(ticket.getAddress()).getNetworkFromContract(ticket.getAddress());
+        if (contractNetworkId == networkId)
+        {
+            verified.setVisibility(View.VISIBLE);
+            textVerified.setVisibility(View.VISIBLE);
+        }
+        else
+        {
+            unVerified.setVisibility(View.VISIBLE);
+            textUnverified.setVisibility(View.VISIBLE);
+        }
+
+        TextView limitHint = findViewById(R.id.textLimit);
+        limitHint.setVisibility(View.VISIBLE);
+
+        costLayout.setVisibility(View.GONE);
+
+
     }
 
     private void checkContractNetwork(String contractAddress)
@@ -133,13 +208,13 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         int checkNetworkId = viewModel.getAssetDefinitionService().getAssetDefinition(contractAddress).getNetworkFromContract(contractAddress);
         if (checkNetworkId > 0)
         {
-            viewModel.switchNetwork(checkNetworkId);
+            viewModel.switchNetwork(this, checkNetworkId);
         }
         else
         {
             //TODO: attempt to determine which network the contract is on.
             //TODO: Use Etherscan to ping the networks sequentially
-            viewModel.loadToken();
+            viewModel.loadToken(this);
         }
     }
 
@@ -396,31 +471,44 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.import_ticket:
-                if (ticketRange != null) {
-                    if (viewModel.getSalesOrder().price > 0.0)
-                    {
-                        confirmPurchaseDialog();
-                    }
-                    else {
-                        onProgress(true);
-                        Ticket t = viewModel.getImportToken();
-                        int checkNetworkId = viewModel.getAssetDefinition(t.getAddress()).getNetworkFromContract(t.getAddress());
-                        if (checkNetworkId > 0)
-                        {
-                            viewModel.importThroughFeemaster(viewModel.getAssetDefinition(t.getAddress()).getFeemasterAPI());
-                        }
-                        else
-                        {
-                            viewModel.performImport();
-                        }
-                    }
-                }
+                handleActionButton();
                 break;
             case R.id.cancel_button:
                 //go to main screen
                 new HomeRouter().open(this, true);
                 finish();
                 break;
+        }
+    }
+
+    private void handleActionButton()
+    {
+        MagicLinkData data = viewModel.getSalesOrder();
+        if (data.contractType == 0x03)
+        {
+            String tokenMessage = inputView.getText().toString();
+            //now form the transaction and send
+            viewModel.performCreateToken(tokenMessage);
+        }
+        else if (ticketRange != null)
+        {
+            if (viewModel.getSalesOrder().price > 0.0)
+            {
+                confirmPurchaseDialog();
+            }
+            else {
+                onProgress(true);
+                Ticket t = viewModel.getImportToken();
+                int checkNetworkId = viewModel.getAssetDefinition(t.getAddress()).getNetworkFromContract(t.getAddress());
+                if (checkNetworkId > 0)
+                {
+                    viewModel.importThroughFeemaster(viewModel.getAssetDefinition(t.getAddress()).getFeemasterAPI());
+                }
+                else
+                {
+                    viewModel.performImport();
+                }
+            }
         }
     }
 
