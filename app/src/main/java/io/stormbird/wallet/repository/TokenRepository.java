@@ -24,6 +24,7 @@ import org.web3j.abi.EventEncoder;
 import org.web3j.abi.EventValues;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.FunctionReturnDecoder;
+import org.web3j.abi.TypeDecoder;
 import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Bool;
@@ -215,7 +216,8 @@ public class TokenRepository implements TokenRepositoryType {
                 .toObservable();
     }
 
-    private Observable<List<Token>> fetchStoredEnabledTokensList(NetworkInfo network, Wallet wallet) {
+    @Override
+    public Observable<List<Token>> fetchStoredEnabledTokensList(NetworkInfo network, Wallet wallet) {
         return localSource
                 .fetchEnabledTokensSequentialList(network, wallet);
     }
@@ -300,6 +302,16 @@ public class TokenRepository implements TokenRepositoryType {
         NetworkInfo network = ethereumNetworkRepository.getDefaultNetwork();
         Wallet wallet = new Wallet(walletAddress);
         return updateBalance(network, wallet, token)
+                .observeOn(Schedulers.newThread())
+                .toObservable();
+    }
+
+    @Override
+    public Observable<Token> fetchActiveDefaultTokenBalance(Token token)
+    {
+        NetworkInfo network = ethereumNetworkRepository.getDefaultNetwork();
+        return walletRepository.getDefaultWallet()
+                .flatMap(wallet -> updateBalance(network, wallet, token))
                 .observeOn(Schedulers.newThread())
                 .toObservable();
     }
@@ -417,6 +429,12 @@ public class TokenRepository implements TokenRepositoryType {
     }
 
     @Override
+    public void terminateToken(Token token, Wallet wallet, NetworkInfo network)
+    {
+        localSource.setTokenTerminated(network, wallet, token);
+    }
+
+    @Override
     public Single<TokenInfo[]> update(String[] address)
     {
         return setupTokensFromLocal(address);
@@ -489,53 +507,56 @@ public class TokenRepository implements TokenRepositoryType {
      * @return
      */
     private Single<Token> updateBalance(NetworkInfo network, Wallet wallet, final Token token) {
-        return Single.fromCallable(() -> {
-            TokenFactory tFactory = new TokenFactory();
-            try
-            {
-                if (token.isEthereum())
+        if (token.isEthereum())
+        {
+            return attachEth(network, wallet);
+        }
+        else
+        {
+            return Single.fromCallable(() -> {
+                TokenFactory tFactory = new TokenFactory();
+                try
                 {
-                    return token; //already have the balance for ETH
-                }
-                List<BigInteger> balanceArray = null;
-                List<Integer> burnArray = null;
-                BigDecimal balance = null;
-                if (token.tokenInfo.isStormbird)
-                {
-                    Ticket t = (Ticket) token;
-                    balanceArray = getBalanceArray(wallet, t.tokenInfo);
-                    burnArray = t.getBurnList();
-                }
-                else
-                {
-                    balance = getBalance(wallet, token.tokenInfo);
-                }
+                    List<BigInteger> balanceArray = null;
+                    List<Integer> burnArray = null;
+                    BigDecimal balance = null;
+                    if (token.tokenInfo.isStormbird)
+                    {
+                        Ticket t = (Ticket) token;
+                        balanceArray = getBalanceArray(wallet, t.tokenInfo);
+                        burnArray = t.getBurnList();
+                    }
+                    else
+                    {
+                        balance = getBalance(wallet, token.tokenInfo);
+                    }
 
-                  //This code, together with an account with many tokens on it thrashes the Token view update
+                    //This code, together with an account with many tokens on it thrashes the Token view update
 //                if (Math.random() > 0.5)
 //                {
 //                    throw new BadContract();
 //                }
 
-                Token updated = tFactory.createToken(token.tokenInfo, balance, balanceArray, burnArray, System.currentTimeMillis());
-                localSource.updateTokenBalance(network, wallet, updated);
-                return updated;
-            }
-            catch (BadContract e)
-            {
-                //this doesn't mean the token is dead. Just try again
-                //did we previously have a balance?
-                return token;
+                    Token updated = tFactory.createToken(token.tokenInfo, balance, balanceArray, burnArray, System.currentTimeMillis());
+                    localSource.updateTokenBalance(network, wallet, updated);
+                    return updated;
+                }
+                catch (BadContract e)
+                {
+                    //this doesn't mean the token is dead. Just try again
+                    //did we previously have a balance?
+                    return token;
 //                Token updated = tFactory.createToken(token.tokenInfo, BigDecimal.ZERO, new ArrayList<BigInteger>(), null, System.currentTimeMillis());
 //                localSource.updateTokenDestroyed(network, wallet, updated);
 //                return updated;
-            }
-            catch (Exception e)
-            {
-                e.printStackTrace();
-                return token;
-            }
-        });
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                    return token;
+                }
+            });
+        }
     }
 
     private ObservableTransformer<Token, Token> updateBalance(NetworkInfo network, Wallet wallet) {
@@ -546,7 +567,7 @@ public class TokenRepository implements TokenRepositoryType {
             BigDecimal balance = null;
             List<BigInteger> balanceArray = null;
             List<Integer> burnArray = null;
-            if (token.balance == null || token.updateBlancaTime < minUpdateBalanceTime) {
+            if (token.balance == null || (token.getUpdateBlancaTime() < minUpdateBalanceTime && token.getUpdateBlancaTime() > 0)) {
                 try {
                     if (token.tokenInfo.isStormbird)
                     {
@@ -680,9 +701,43 @@ public class TokenRepository implements TokenRepositoryType {
 
         List<Type> response = FunctionReturnDecoder.decode(responseValue, function.getOutputParameters());
         if (response.size() == 1) {
-            return new BigDecimal(((Uint256) response.get(0)).getValue());
+            BigDecimal retVal = new BigDecimal(((Uint256) response.get(0)).getValue());
+            if (retVal.equals(BigDecimal.valueOf(32)))
+            {
+                return checkValue(retVal, wallet, responseValue);
+            }
+            else
+            {
+                return retVal;
+            }
+
         } else {
             return null;
+        }
+    }
+
+    /**
+     * This function checks for suspicious contracts. If the value of tokens is 32, this could be an array return.
+     * Parsing the returned value with DynamicArray, if it is an array spec (ie 0x02, then array size etc) then
+     * we can remove this token. However it would be better to display the token as a ticket if the array balance has elements.
+     * @param value
+     * @param wallet
+     * @param responseValue
+     * @return
+     */
+    private BigDecimal checkValue(BigDecimal value, Wallet wallet, String responseValue)
+    {
+        org.web3j.abi.datatypes.Function functionCheck = balanceOfArray(wallet.address);
+        List<Type> values = FunctionReturnDecoder.decode(responseValue, functionCheck.getOutputParameters());
+        //is it an array?
+        if (values.isEmpty()) return value;
+        else if (values.size() > 0)
+        {
+            return BigDecimal.ZERO;
+        }
+        else
+        {
+            return value;
         }
     }
 

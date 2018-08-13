@@ -13,8 +13,10 @@ import android.widget.TextView;
 
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.ERC875ContractTransaction;
+import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.Transaction;
 import io.stormbird.wallet.entity.TransactionOperation;
+import io.stormbird.wallet.service.TokensService;
 import io.stormbird.wallet.ui.widget.OnTransactionClickListener;
 
 import java.math.BigDecimal;
@@ -43,8 +45,9 @@ public class TransactionHolder extends BinderViewHolder<Transaction> implements 
     private Transaction transaction;
     private String defaultAddress;
     private OnTransactionClickListener onTransactionClickListener;
+    private TokensService tokensService;
 
-    public TransactionHolder(int resId, ViewGroup parent) {
+    public TransactionHolder(int resId, ViewGroup parent, TokensService service) {
         super(resId, parent);
 
         typeIcon = findViewById(R.id.type_icon);
@@ -52,6 +55,7 @@ public class TransactionHolder extends BinderViewHolder<Transaction> implements 
         type = findViewById(R.id.type);
         value = findViewById(R.id.value);
         supplimental = findViewById(R.id.supplimental);
+        tokensService = service;
 
         typeIcon.setColorFilter(
                 ContextCompat.getColor(getContext(), R.color.item_icon_tint),
@@ -130,7 +134,14 @@ public class TransactionHolder extends BinderViewHolder<Transaction> implements 
         }
 
         type.setText(getString(ct.operation));
-        address.setText(ct.name);
+        Token token = tokensService.getToken(ct.address);
+        String tokenName = ct.name;
+        if (token != null && (tokenName == null || tokenName.length() == 0))
+        {
+            tokenName = token.getFullName();
+        }
+
+        address.setText(tokenName);
         value.setTextColor(ContextCompat.getColor(getContext(), colourResource));
         String ticketMove = "";
         String supplimentalTxt = "";

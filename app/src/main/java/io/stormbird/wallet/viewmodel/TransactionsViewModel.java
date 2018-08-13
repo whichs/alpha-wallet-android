@@ -13,7 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import io.reactivex.Scheduler;
+import io.reactivex.disposables.CompositeDisposable;
 import io.stormbird.wallet.entity.NetworkInfo;
 import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.Transaction;
@@ -32,6 +36,7 @@ import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 import io.stormbird.wallet.service.AssetDefinitionService;
+import io.stormbird.wallet.service.TokensService;
 
 public class TransactionsViewModel extends BaseViewModel
 {
@@ -52,6 +57,7 @@ public class TransactionsViewModel extends BaseViewModel
     private final AddTokenInteract addTokenInteract;
     private final SetupTokensInteract setupTokensInteract;
     private final AssetDefinitionService assetDefinitionService;
+    private final TokensService tokensService;
 
     private final TransactionDetailRouter transactionDetailRouter;
     private final ExternalBrowserRouter externalBrowserRouter;
@@ -59,12 +65,13 @@ public class TransactionsViewModel extends BaseViewModel
 
     @Nullable
     private Disposable fetchTransactionDisposable;
+    private CompositeDisposable compositeDisposable = new CompositeDisposable();
     private Handler handler = new Handler();
 
     private boolean isVisible = false;
     private Transaction[] txArray;
     private Map<String, Transaction> txMap = new ConcurrentHashMap<>();
-    private Map<String, Token> tokenMap = new ConcurrentHashMap<>();
+    //private Map<String, Token> tokenMap = new ConcurrentHashMap<>();
     private int transactionCount;
     private long lastBlock = 0;
     private boolean firstRun = false;
@@ -80,7 +87,8 @@ public class TransactionsViewModel extends BaseViewModel
             TransactionDetailRouter transactionDetailRouter,
             ExternalBrowserRouter externalBrowserRouter,
             HomeRouter homeRouter,
-            AssetDefinitionService assetDefinitionService) {
+            AssetDefinitionService assetDefinitionService,
+            TokensService tokensService) {
         this.findDefaultNetworkInteract = findDefaultNetworkInteract;
         this.findDefaultWalletInteract = findDefaultWalletInteract;
         this.fetchTransactionsInteract = fetchTransactionsInteract;
@@ -91,6 +99,7 @@ public class TransactionsViewModel extends BaseViewModel
         this.addTokenInteract = addTokenInteract;
         this.setupTokensInteract = setupTokensInteract;
         this.assetDefinitionService = assetDefinitionService;
+        this.tokensService = tokensService;
     }
 
     @Override
@@ -117,6 +126,7 @@ public class TransactionsViewModel extends BaseViewModel
         }
 
         fetchTransactionDisposable = null;
+        compositeDisposable.dispose();
 
         txArray = null;
         txMap.clear();
@@ -144,9 +154,11 @@ public class TransactionsViewModel extends BaseViewModel
     {
         firstRun = false;
         progress.postValue(true);
-        disposable = findDefaultNetworkInteract
+        Disposable d = findDefaultNetworkInteract
                 .find()
                 .subscribe(this::onDefaultNetwork, this::onError);
+
+        compositeDisposable.add(d);
     }
 
     /**
@@ -174,9 +186,11 @@ public class TransactionsViewModel extends BaseViewModel
         else
         {
             Log.d(TAG, "No wallet");
-            disposable = findDefaultWalletInteract
+            Disposable d = findDefaultWalletInteract
                     .find()
                     .subscribe(this::onDefaultWallet, this::onError);
+
+            compositeDisposable.add(d);
         }
     }
 
@@ -287,22 +301,26 @@ public class TransactionsViewModel extends BaseViewModel
         txArray = txMap.values().toArray(new Transaction[txMap.size()]);
         transactionCount += txArray.length;
 
+        final ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(3);
+
         //Fetch all stored tokens, but no ethd
         //TODO: after the map addTokenToChecklist stage we should be using a reduce instead of filtering in the fetch function
         fetchTransactionDisposable = fetchTokensInteract
                 .fetchSequentialNoEth(wallet.getValue())
+                .filter(token -> (!token.isTerminated() && token.tokenInfo.name != null)) //don't update dead or potentially dead contracts
                 .map(this::addTokenToChecklist)
                 .flatMap(token -> fetchTransactionsInteract.fetch(new Wallet(token.tokenInfo.address), token)) //single that fetches all the tx's from etherscan for each token from fetchSequential
-                .flatMap(tokenTransactions -> setupTokensInteract.processTokenTransactions(defaultWallet().getValue(), tokenTransactions)) //process these into a map
+                .flatMap(tokenTransactions -> setupTokensInteract.processTokenTransactions(defaultWallet().getValue(), tokenTransactions, tokensService)) //process these into a map
                 .flatMap(transactions -> fetchTransactionsInteract.storeTransactionsObservable(network.getValue(), wallet.getValue(), transactions))
                 .flatMap(this::removeFromMap)
-                .subscribeOn(Schedulers.newThread())
+                .subscribeOn(Schedulers.from(threadPoolExecutor))
                 .subscribe(this::updateDisplay, this::onError, this::siftUnknownTransactions);
     }
 
     private Token addTokenToChecklist(Token token)
     {
-        tokenMap.put(token.getAddress(), token);
+        Log.d("ORDERCHK","Adding to checklist: " + token.getAddress());
+        //tokenMap.put(token.getAddress(), token);
         setupTokensInteract.addTokenToMap(token);
         return token;
     }
@@ -312,15 +330,16 @@ public class TransactionsViewModel extends BaseViewModel
     private void siftUnknownTransactions()
     {
         //add in the XML contract address to list of unknowns to fetch if we don't have it already
-        setupTokensInteract.setupUnknownList(tokenMap, assetDefinitionService.getAllContracts(network.getValue().chainId));
+        setupTokensInteract.setupUnknownList(tokensService, assetDefinitionService.getAllContracts(network.getValue().chainId));
 
-        fetchTransactionDisposable = setupTokensInteract.processRemainingTransactions(txMap.values().toArray(new Transaction[0]), tokenMap) //patches tx's and returns unknown contracts
+        fetchTransactionDisposable = setupTokensInteract.processRemainingTransactions(txMap.values().toArray(new Transaction[0]), tokensService) //patches tx's and returns unknown contracts
                 .flatMap(transactions -> fetchTransactionsInteract.storeTransactions(network.getValue(), wallet.getValue(), transactions).toObservable()) //store patched TX
                 .map(setupTokensInteract::getUnknownContracts) //emit a list of string addresses
                 .flatMapIterable(address -> address) //change to a sequential stream
                 .flatMap(setupTokensInteract::addToken) //fetch token info
                 .flatMap(addTokenInteract::add) //add to cached tokens
-                .flatMap(token -> setupTokensInteract.reProcessTokens(token, txMap)) //run through transactions now we have the new token
+                .map(tokensService::addToken)
+                .flatMap(token -> setupTokensInteract.reProcessTokens(token, txMap, tokensService)) //run through transactions now we have the new token
                 .flatMap(this::removeFromMap) //remove the handled transactions from the map (so we don't need to scan these transactions again)
                 .flatMap(transactions -> fetchTransactionsInteract.storeTransactions(network.getValue(), wallet.getValue(), transactions).toObservable()) //store newly fixed up transactions
                 .subscribeOn(Schedulers.io())
@@ -337,6 +356,7 @@ public class TransactionsViewModel extends BaseViewModel
     //update the display for newly fetched tokens
     private void updateDisplay(Transaction[] transactions)
     {
+        Log.d("ORDERCHK","update Display: ");
         if (transactions.length > 0)
         {
             this.transactions.postValue(transactions);
@@ -349,27 +369,52 @@ public class TransactionsViewModel extends BaseViewModel
         Transaction[] transactions = txMap.values().toArray(new Transaction[txMap.size()]);
         fetchTransactionDisposable = fetchTransactionsInteract.storeTransactions(network.getValue(), wallet.getValue(), transactions).toObservable()
                 .subscribeOn(Schedulers.io())
-                .subscribe(this::completeCycle, this::onError);
+                .subscribe(this::completeCycle, this::onError, this::scanForTerminatedTokens);
     }
 
     private void completeCycle(Transaction[] transactions)
     {
         progress.postValue(false); //ensure spinner is off on completion (in case user forced update)
-        fetchTransactionDisposable = null;
-        if (firstRun)
-        {
-            firstRun = false;
-            clearAdapter.postValue(true);
-        }
-        else
-        {
-            checkIfRegularUpdateNeeded();
-        }
+    }
+
+    private void scanForTerminatedTokens()
+    {
+        checkIfRegularUpdateNeeded();
+//        fetchTransactionDisposable = null;
+//        if (firstRun)
+//        {
+//            firstRun = false;
+//            clearAdapter.postValue(true);
+//        }
+//        else
+//        {
+//
+//        }
+
+        //run through the map and see if there were any tokens that have been terminated
+        Disposable d = Observable.fromCallable(tokensService::getTerminationList)
+                .flatMapIterable(address -> address)
+                .map(address -> setupTokensInteract.terminateToken(tokensService.getToken(address), defaultWallet().getValue(), defaultNetwork().getValue()))
+                .subscribeOn(Schedulers.newThread())
+                .subscribe(this::onTokenForTermination, this::onError, this::wipeTerminationList);
+
+        compositeDisposable.add(d);
+    }
+
+    private void wipeTerminationList()
+    {
+        tokensService.clearTerminationList();
+    }
+
+    private void onTokenForTermination(Token token)
+    {
+        System.out.print("Terminated: " + token.getAddress());
     }
 
     private Observable<Transaction[]> removeFromMap(Transaction[] transactions)
     {
         return Observable.fromCallable(() -> {
+            Log.d("ORDERCHK","Remove from Map");
             Log.d(TAG, "GOT: " + transactions.length );
             //first remove all these transactions from the network + cached list
             for (Transaction t : transactions)
@@ -400,37 +445,31 @@ public class TransactionsViewModel extends BaseViewModel
 
     private void checkIfRegularUpdateNeeded()
     {
-        if (!isVisible)
+        Log.d(TAG, "Finish");
+        if (fetchTransactionDisposable != null && !fetchTransactionDisposable.isDisposed())
         {
-            //no longer any need to refresh
-            Log.d(TAG, "Finish");
-            if (fetchTransactionDisposable != null && !fetchTransactionDisposable.isDisposed())
-            {
-                fetchTransactionDisposable.dispose();
-            }
-            fetchTransactionDisposable = null; //ready to restart the fetch
-
-            handler.removeCallbacks(startFetchTransactionsTask);
+            fetchTransactionDisposable.dispose();
         }
-        else if (fetchTransactionDisposable == null)
+        fetchTransactionDisposable = null; //ready to restart the fetch
+
+        handler.removeCallbacks(startFetchTransactionsTask);
+
+        if (isVisible)
         {
-            handler.removeCallbacks(startFetchTransactionsTask);
             Log.d(TAG, "Delayed start in " + FETCH_TRANSACTIONS_INTERVAL);
             handler.postDelayed(
                     startFetchTransactionsTask,
                     FETCH_TRANSACTIONS_INTERVAL);
         }
-        else
-        {
-            Log.d(TAG, "must already be running, wait until termination");
-        }
     }
 
     private void onDefaultNetwork(NetworkInfo networkInfo) {
         network.setValue(networkInfo);
-        disposable = findDefaultWalletInteract
+        Disposable d = findDefaultWalletInteract
                 .find()
                 .subscribe(this::onDefaultWallet, this::onError);
+
+        compositeDisposable.add(d);
     }
 
     private void onDefaultWallet(Wallet wallet) {
@@ -457,22 +496,18 @@ public class TransactionsViewModel extends BaseViewModel
     //start updating transactions
     public void startTransactionRefresh() {
         isVisible = true;
-        if (fetchTransactionDisposable == null || fetchTransactionDisposable.isDisposed()) //ready to restart the fetch == null || fetchTokensDisposable.isDisposed())
+        if (fetchTransactionDisposable == null) //ready to restart the fetch
         {
             checkIfRegularUpdateNeeded();
         }
-        /*if (txArray != null)
-        {
-            this.transactions.postValue(txArray);
-        }*/
     }
 
     public void setVisibility(boolean visibility) {
         isVisible = visibility;
     }
 
-    public void clearTransactionEntries()
+    public TokensService getTokensService()
     {
-
+        return tokensService;
     }
 }

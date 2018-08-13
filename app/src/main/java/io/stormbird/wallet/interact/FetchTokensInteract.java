@@ -6,6 +6,7 @@ import io.stormbird.wallet.entity.OrderContractAddressPair;
 import io.stormbird.wallet.entity.Ticker;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.Token;
+import io.stormbird.wallet.entity.TokenInfo;
 import io.stormbird.wallet.entity.Wallet;
 import io.stormbird.wallet.repository.TokenRepositoryType;
 
@@ -38,6 +39,10 @@ public class FetchTokensInteract {
         return tokenRepository.fetchActive(wallet.address)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
+    }
+
+    public Observable<TokenInfo> getTokenInfo(String address) {
+        return tokenRepository.update(address);
     }
 
     private Map<String, Token> tokensToMap(Token[] tokenArray) {
@@ -95,6 +100,13 @@ public class FetchTokensInteract {
                         .observeOn(AndroidSchedulers.mainThread());
     }
 
+    public Observable<List<Token>> fetchTokenList(NetworkInfo network, Wallet wallet)
+    {
+        return tokenRepository.fetchStoredEnabledTokensList(network, wallet)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
+
     public Observable<Token> fetchEth(NetworkInfo network, Wallet wallet)
     {
         return tokenRepository.getEthBalance(network, wallet).toObservable()
@@ -105,6 +117,13 @@ public class FetchTokensInteract {
     public Observable<Token> updateBalance(Wallet wallet, Token token)
     {
         return tokenRepository.fetchActiveTokenBalance(wallet.address, token)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
+
+    public Observable<Token> updateDefaultBalance(Token token)
+    {
+        return tokenRepository.fetchActiveDefaultTokenBalance(token)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
     }

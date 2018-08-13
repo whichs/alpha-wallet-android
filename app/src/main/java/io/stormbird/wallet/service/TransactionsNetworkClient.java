@@ -3,6 +3,7 @@ package io.stormbird.wallet.service;
 import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -87,6 +88,7 @@ public class TransactionsNetworkClient implements TransactionsNetworkClientType 
 			List<Transaction> result = new ArrayList<>();
 			try
 			{
+				Log.d("ORDERCHK", "fetching txs: " + wallet.address);
 				String response = readTransactions(networkInfo, wallet.address, String.valueOf(lastBlockNumber));
 
 				if (response != null)
@@ -99,6 +101,7 @@ public class TransactionsNetworkClient implements TransactionsNetworkClientType 
 					{
 						result.add(etx.createTransaction());
 					}
+					Log.d("ORDERCHK", "fetched " + myTxs.length + " txs");
 				}
 			}
 			catch (Exception e)

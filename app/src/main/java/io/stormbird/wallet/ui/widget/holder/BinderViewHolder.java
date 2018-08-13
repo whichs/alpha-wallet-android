@@ -9,6 +9,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import io.stormbird.wallet.service.TokensService;
+
 public abstract class BinderViewHolder<T> extends RecyclerView.ViewHolder {
 	public BinderViewHolder(int resId, ViewGroup parent) {
 		super(LayoutInflater.from(parent.getContext())

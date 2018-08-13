@@ -23,12 +23,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.stormbird.wallet.C.ETH_SYMBOL;
+import static io.stormbird.wallet.interact.SetupTokensInteract.EXPIRED_CONTRACT;
+import static io.stormbird.wallet.interact.SetupTokensInteract.UNKNOWN_CONTRACT;
 
 public class Token implements Parcelable
 {
     public final TokenInfo tokenInfo;
     public BigDecimal balance;
-    public final long updateBlancaTime;
+    private long updateBlancaTime;
     public boolean balanceIsLive = false;
     public boolean isERC20 = false; //TODO: when we see ERC20 functions in transaction decoder switch this on
     private boolean isEth = false;
@@ -39,6 +41,11 @@ public class Token implements Parcelable
         this.tokenInfo = tokenInfo;
         this.balance = balance;
         this.updateBlancaTime = updateBlancaTime;
+    }
+
+    public long getUpdateBlancaTime()
+    {
+        return updateBlancaTime;
     }
 
     protected Token(Parcel in) {
@@ -102,12 +109,19 @@ public class Token implements Parcelable
         }
     }
 
+    public void setIsTerminated(RealmToken realmToken)
+    {
+        realmToken.setUpdatedTime(-1);
+        updateBlancaTime = -1;
+    }
+
     public String getAddress() {
         return tokenInfo.address;
     }
     public String getFullName()
     {
-        if (tokenInfo.name == null) return null;
+        if (isTerminated()) return EXPIRED_CONTRACT;
+        if (isBad()) return UNKNOWN_CONTRACT;
         return tokenInfo.name + (tokenInfo.symbol != null && tokenInfo.symbol.length() > 0 ? "(" + tokenInfo.symbol.toUpperCase() + ")" : "");
     }
 
@@ -309,6 +323,8 @@ public class Token implements Parcelable
     {
         return (tokenInfo != null && tokenInfo.symbol != null && isEth);
     }
+
+    public boolean isTerminated() { return (updateBlancaTime == -1); }
 
     public boolean isBad()
     {

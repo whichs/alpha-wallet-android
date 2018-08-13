@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.ERC875ContractTransaction;
+import io.stormbird.wallet.entity.NetworkInfo;
 import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.TokenInfo;
 import io.stormbird.wallet.entity.TokenTransaction;
@@ -29,6 +30,7 @@ import io.stormbird.wallet.repository.TokenRepositoryType;
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
+import io.stormbird.wallet.service.TokensService;
 
 public class SetupTokensInteract {
 
@@ -74,7 +76,7 @@ public class SetupTokensInteract {
      * @param data The transaction input parsed by the TransactionDecoder class
      * @return New transaction that has the interaction information added. This has to be re-created since the Contract data is final.
      */
-    private Transaction parseTransaction(Token token, Transaction thisTrans, TransactionInput data)
+    private Transaction parseTransaction(Token token, Transaction thisTrans, TransactionInput data, TokensService tokensService)
     {
         Transaction newTransaction = thisTrans;
         try
@@ -90,7 +92,7 @@ public class SetupTokensInteract {
             {
                 functionName = CONTRACT_CONSTRUCTOR;
             }
-            else if (data.functionData != null)
+            else if (data != null && data.functionData != null)
             {
                 functionName = data.functionData.functionFullName;
             }
@@ -146,9 +148,11 @@ public class SetupTokensInteract {
                     op.value = String.valueOf(data.getFirstValue());
                     break;
                 case "endContract()":
+                case "SelfDestruct()":
                     ct.setOperation(R.string.ticket_terminate_contract);
                     ct.name = thisTrans.to;
                     ct.setType(-2);
+                    if (token != null && !token.isTerminated()) tokensService.scheduleForTermination(token.getAddress());
                     break;
                 case CONTRACT_CONSTRUCTOR:
                     ct.name = thisTrans.to;
@@ -163,6 +167,8 @@ public class SetupTokensInteract {
                     break;
                 case "issuePassTo(uint256,uint256,uint8,bytes32,bytes32,address)":
                     ct.symbol = token.tokenInfo.symbol;
+                    break;
+                case "transferFrom(address,address,uint256)":
                     break;
                 default:
                     //ct.setOperation(R.string.ticket_invalid_op);
@@ -195,9 +201,9 @@ public class SetupTokensInteract {
     {
         if (token != null)
         {
-            if (token.isBad())
+            if (token.isTerminated() || token.isBad())
             {
-                ct.name = "";// EXPIRED_CONTRACT; //re-processing a contract that's been killed.
+                ct.name = "";//EXPIRED_CONTRACT; //re-processing a contract that's been killed.
             }
             else
             {
@@ -298,8 +304,12 @@ public class SetupTokensInteract {
      * @param wallet
      * @return
      */
-    public Observable<Transaction[]> processTokenTransactions(Wallet wallet, TokenTransaction[] txList)
+    public Observable<Transaction[]> processTokenTransactions(Wallet wallet, TokenTransaction[] txList, TokensService tokensService)
     {
+        if (txList.length > 0)
+        {
+            System.out.println("process " + txList[0].token.getAddress());
+        }
         return Observable.fromCallable(() -> {
             List<Transaction> processedTransactions = new ArrayList<Transaction>();
             try {
@@ -308,7 +318,7 @@ public class SetupTokensInteract {
                     TransactionInput data = transactionDecoder.decodeInput(thisTrans.input);
 
                     if (walletInvolvedInTransaction(thisTrans, data, wallet)) {
-                        Transaction newTx = parseTransaction(thisTokenTrans.token, thisTrans, data);
+                        Transaction newTx = parseTransaction(thisTokenTrans.token, thisTrans, data, tokensService);
                         if (newTx != null)
                         {
                             processedTransactions.add(newTx);
@@ -327,24 +337,24 @@ public class SetupTokensInteract {
     /**
      * Parse all transactions not associated with known tokens and pick up unknown contracts
      * @param transactions
-     * @param tokenMap
+     * @param tokensService
      * @return
      */
-    public Observable<Transaction[]> processRemainingTransactions(Transaction[] transactions, Map<String, Token> tokenMap)
+    public Observable<Transaction[]> processRemainingTransactions(Transaction[] transactions, TokensService tokensService)
     {
         return Observable.fromCallable(() -> {
             List<Transaction> processedTxList = new ArrayList<>();
             //process the remaining transactions
             for (Transaction t : transactions)
             {
-                if (t.input != null && t.input.length() > 20)
+                if (t.input != null && t.input.length() >= 10)
                 {
                     TransactionInput data = transactionDecoder.decodeInput(t.input);
                     if (t.isConstructor || (data != null && data.functionData != null))
                     {
-                        Token localToken = tokenMap.get(t.to);
+                        Token localToken = tokensService.getToken(t.to);
                         if (localToken == null && !unknownContracts.contains(t.to)) unknownContracts.add(t.to);
-                        t = parseTransaction(localToken, t, data);
+                        t = parseTransaction(localToken, t, data, tokensService);
                     }
                 }
                 processedTxList.add(t);
@@ -359,14 +369,14 @@ public class SetupTokensInteract {
         return tokenRepository.update(address);
     }
 
-    public void setupUnknownList(Map<String, Token> tokenMap, List<String> xmlContractAddresses)
+    public void setupUnknownList(TokensService tokensService, List<String> xmlContractAddresses)
     {
         unknownContracts.clear();
         if (xmlContractAddresses != null)
         {
             for (String address : xmlContractAddresses)
             {
-                if (tokenMap.get(address) == null) unknownContracts.add(address);
+                if (tokensService.getToken(address) == null) unknownContracts.add(address);
             }
         }
     }
@@ -383,7 +393,7 @@ public class SetupTokensInteract {
      * @param txMap
      * @return
      */
-    public Observable<Transaction[]> reProcessTokens(Token token, Map<String, Transaction> txMap)
+    public Observable<Transaction[]> reProcessTokens(Token token, Map<String, Transaction> txMap, TokensService tokensService)
     {
         Log.d(TAG, "Re Processing " + token.getFullName());
         return Observable.fromCallable(() -> {
@@ -397,7 +407,7 @@ public class SetupTokensInteract {
                         TransactionInput data = transactionDecoder.decodeInput(t.input);
                         if (data != null && data.functionData != null)
                         {
-                            t = parseTransaction(token, t, data);
+                            t = parseTransaction(token, t, data, tokensService);
                             processedTxList.add(t);
                             if (t != null) txMap.remove(t.hash);
                         }
@@ -408,5 +418,11 @@ public class SetupTokensInteract {
             Log.d(TAG, "Re Processing " + processedTxList.size() + " : " + token.getFullName());
             return processedTxList.toArray(new Transaction[processedTxList.size()]);
         });
+    }
+
+    public Token terminateToken(Token token, Wallet wallet, NetworkInfo network)
+    {
+        tokenRepository.terminateToken(token, wallet, network);
+        return token;
     }
 }

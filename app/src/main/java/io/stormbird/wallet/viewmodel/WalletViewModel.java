@@ -9,12 +9,14 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 import io.stormbird.wallet.entity.ErrorEnvelope;
@@ -34,6 +36,7 @@ import io.stormbird.wallet.router.AssetDisplayRouter;
 import io.stormbird.wallet.router.ChangeTokenCollectionRouter;
 import io.stormbird.wallet.router.SendTokenRouter;
 import io.stormbird.wallet.service.AssetDefinitionService;
+import io.stormbird.wallet.service.TokensService;
 
 import static io.stormbird.wallet.C.ErrorCode.EMPTY_COLLECTION;
 
@@ -63,6 +66,9 @@ public class WalletViewModel extends BaseViewModel {
     private final FindDefaultWalletInteract findDefaultWalletInteract;
     private final GetDefaultWalletBalance getDefaultWalletBalance;
     private final AssetDefinitionService assetDefinitionService;
+    private final TokensService tokensService;
+
+    private CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     private Token[] tokenCache = null;
     private boolean isVisible = false;
@@ -83,7 +89,8 @@ public class WalletViewModel extends BaseViewModel {
             GetDefaultWalletBalance getDefaultWalletBalance,
             AddTokenInteract addTokenInteract,
             SetupTokensInteract setupTokensInteract,
-            AssetDefinitionService assetDefinitionService) {
+            AssetDefinitionService assetDefinitionService,
+            TokensService tokensService) {
         this.fetchTokensInteract = fetchTokensInteract;
         this.addTokenRouter = addTokenRouter;
         this.sendTokenRouter = sendTokenRouter;
@@ -95,6 +102,7 @@ public class WalletViewModel extends BaseViewModel {
         this.addTokenInteract = addTokenInteract;
         this.setupTokensInteract = setupTokensInteract;
         this.assetDefinitionService = assetDefinitionService;
+        this.tokensService = tokensService;
     }
 
     public LiveData<Token[]> tokens() {
@@ -117,12 +125,15 @@ public class WalletViewModel extends BaseViewModel {
         {
             updateTokens.dispose();
         }
+
+        compositeDisposable.dispose();
     }
 
     //we changed wallets or network, ensure we clean up before displaying new data
     public void abortAndRestart()
     {
         defaultWallet.setValue(null);
+        tokensService.clearTokens();
         if (updateTokens != null && !updateTokens.isDisposed())
         {
             updateTokens.dispose();
@@ -132,7 +143,8 @@ public class WalletViewModel extends BaseViewModel {
             fetchTokenBalanceDisposable.dispose();
         }
 
-        fetchTokens();
+        compositeDisposable.dispose();
+        prepare();
     }
 
     public void fetchTokens()
@@ -142,17 +154,17 @@ public class WalletViewModel extends BaseViewModel {
             updateTokens.dispose();
         }
 
-        updateTokens = Observable.interval(0, GET_BALANCE_INTERVAL*5, TimeUnit.SECONDS)
-                .doOnNext(l -> getWallet()
+        updateTokens = getWallet()
                         .flatMap(fetchTokensInteract::fetchStoredWithEth)
                         .subscribeOn(Schedulers.newThread())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(this::onTokens, this::onError, this::onFetchTokensCompletable)).subscribe();
+                        .subscribe(this::onTokens, this::onError, this::onFetchTokensCompletable);
     }
 
     private void onTokens(Token[] tokens)
     {
         tokenCache = tokens;
+        tokensService.addTokens(tokens);
     }
 
     private void onFetchTokensCompletable()
@@ -169,13 +181,38 @@ public class WalletViewModel extends BaseViewModel {
         {
             updateTokenBalances();
         }
+
+        // Check contracts that returned a null but we didn't see them destroyed yet.
+        // Sometimes the network times out or some other issue.
+        Disposable d = Observable.fromCallable(tokensService::getAllTokens)
+                .flatMapIterable(token -> token)
+                .filter(token -> (token.tokenInfo.name == null && !token.isTerminated()))
+                .flatMap(token-> fetchTokensInteract.getTokenInfo(token.getAddress()))
+                .subscribeOn(Schedulers.io())
+                .subscribe(this::receiveTokenInfo, this::onError);
+
+        compositeDisposable.add(d);
+    }
+
+    private void receiveTokenInfo(TokenInfo tokenInfo)
+    {
+        if (tokenInfo.name != null)
+        {
+            //store token!
+            Disposable d = addTokenInteract.add(tokenInfo)
+                    .subscribe(tokensService::addToken);
+
+            compositeDisposable.add(d);
+        }
     }
 
     private void updateTokenBalances()
     {
         fetchTokenBalanceDisposable = Observable.interval(0, GET_BALANCE_INTERVAL, TimeUnit.SECONDS)
-                .doOnNext(l -> getWallet()
-                        .flatMap(fetchTokensInteract::fetchSequential)
+                .doOnNext(l -> Observable.fromCallable(tokensService::getAllTokens)
+                        .flatMapIterable(token -> token)
+                        .filter(token -> (token.tokenInfo.name != null && !token.isTerminated()))
+                        .flatMap(fetchTokensInteract::updateDefaultBalance)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(this::onTokenBalanceUpdate, this::onError, this::onFetchTokensBalanceCompletable)).subscribe();
@@ -184,6 +221,7 @@ public class WalletViewModel extends BaseViewModel {
     private void onTokenBalanceUpdate(Token token)
     {
         tokenUpdate.postValue(token);
+        tokensService.addToken(token);
         //TODO: Calculate total value including token value received from token tickers
         //TODO: Then display the total value of everything at the top of the list in a special holder
     }
@@ -309,22 +347,32 @@ public class WalletViewModel extends BaseViewModel {
 
     public void setContractAddresses()
     {
-        disposable = fetchAllContractAddresses()
-                .flatMapIterable(address -> address)
-                .flatMap(setupTokensInteract::addToken)
-                .flatMap(tokenInfo -> addTokenInteract.add(tokenInfo, defaultWallet.getValue()))
-                .subscribeOn(Schedulers.io())
-                .subscribe(this::finishedImport, this::onTokenAddError);
+        List<String> XMLAddrs = assetDefinitionService.getAllContracts(defaultNetwork.getValue().chainId);
+
+        if (XMLAddrs != null)
+        {
+            disposable = fetchTokensInteract.fetchTokenList(defaultNetwork.getValue(), defaultWallet.getValue())
+                    .map(this::toAddresses)
+                    .map(tokenAddrs -> removeKnown(XMLAddrs, tokenAddrs))
+                    .flatMapIterable(address -> address)
+                    .flatMap(setupTokensInteract::addToken)
+                    .flatMap(tokenInfo -> addTokenInteract.add(tokenInfo, defaultWallet.getValue()))
+                    .subscribeOn(Schedulers.io())
+                    .subscribe(this::finishedImport, this::onTokenAddError);
+        }
     }
 
-    private Observable<List<String>> fetchAllContractAddresses()
+    private List<String> toAddresses(List<Token> tokens)
     {
-        return Observable.fromCallable(() -> {
-            //populate contracts from service
-            List<String> contracts = assetDefinitionService.getAllContracts(defaultNetwork.getValue().chainId);
+        List<String> addrs = new ArrayList<>();
+        for (Token t : tokens) addrs.add(t.getAddress());
+        return addrs;
+    }
 
-            return contracts;
-        });
+    private List<String> removeKnown(List<String> XMLAddrs, List<String> tokenAddrs)
+    {
+        XMLAddrs.removeAll(tokenAddrs);
+        return XMLAddrs;
     }
 
     private void onTokenAddError(Throwable throwable)
@@ -335,6 +383,7 @@ public class WalletViewModel extends BaseViewModel {
 
     private void finishedImport(Token token)
     {
+        tokensService.addToken(token);
         Log.d("WVM", "Added " + token.tokenInfo.name);
     }
 }
