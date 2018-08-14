@@ -105,6 +105,9 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
     private void onTokenUpdate(Token t)
     {
+        //add this to screen
+        RecyclerView list = findViewById(R.id.listTickets);
+
 //        ticket = (Ticket) t;
 //        if (!ticket.getBurnListStr().equals(burnList) || !ticket.getFullBalance().equals(balance))
 //        {

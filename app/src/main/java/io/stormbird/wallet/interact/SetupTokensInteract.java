@@ -123,6 +123,10 @@ public class SetupTokensInteract {
                     ct.interpretTransferFrom(walletAddr, data);
                     break;
                 case "transfer(address,uint16[])":
+                    if (ct == null)
+                    {
+                        System.out.print("yoless");
+                    }
                     ct.interpretTransfer(walletAddr, data);
                     break;
                 case "transfer(address,uint256)": //ERC20 transfer

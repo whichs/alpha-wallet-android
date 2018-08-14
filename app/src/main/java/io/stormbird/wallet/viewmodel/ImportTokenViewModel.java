@@ -242,6 +242,7 @@ public class ImportTokenViewModel extends BaseViewModel
 
     private void fetchTokensAtAddress(Context ctx)
     {
+        assetDefinitionService.checkExternalDirectoryAndLoad();
         //first change the network
         int networkValue = Convert.fromWei(importOrder.priceWei.toString(), Convert.Unit.SZABO).intValue();
         switchNetworkInner(networkValue);
@@ -264,6 +265,11 @@ public class ImportTokenViewModel extends BaseViewModel
         {
             //now open ticket view showing all relevant spawn tokens at this address
             spawnTokenDisplayRouter.open(ctx, passList, importOrder.contractAddress);
+        }
+        else
+        {
+            //close import
+
         }
     }
 

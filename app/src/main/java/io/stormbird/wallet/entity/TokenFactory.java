@@ -60,21 +60,29 @@ public class TokenFactory
 
     public Token createTokenBalance(TokenInfo tokenInfo, RealmToken realmItem, long updateBlancaTime)
     {
-        Token thisToken;
-        if (tokenInfo.isStormbird)
+        Token thisToken = null;
+        try
         {
-            String balances = realmItem.getBalance();
-            String burnList = realmItem.getBurnList();
-            if (balances == null) balances = "";
-            thisToken = new Ticket(tokenInfo, balances, burnList, updateBlancaTime);
+            if ()
+            if (tokenInfo.isStormbird)
+            {
+                String balances = realmItem.getBalance();
+                String burnList = realmItem.getBurnList();
+                if (balances == null) balances = "";
+                thisToken = new Ticket(tokenInfo, balances, burnList, updateBlancaTime);
+            }
+            else
+            {
+                long now = System.currentTimeMillis();
+                String realmBalance = realmItem.getBalance();
+                if (realmBalance == null || realmBalance.length() == 0) realmBalance = "0";
+                BigDecimal balance = new BigDecimal(realmBalance);
+                thisToken = new Token(tokenInfo, balance, updateBlancaTime);
+            }
         }
-        else
+        catch (Exception e)
         {
-            long now = System.currentTimeMillis();
-            String realmBalance = realmItem.getBalance();
-            if (realmBalance == null || realmBalance.length() == 0) realmBalance = "0";
-            BigDecimal balance = new BigDecimal(realmBalance);
-            thisToken = new Token(tokenInfo, balance, updateBlancaTime);
+            e.printStackTrace();
         }
 
         return thisToken;

@@ -520,6 +520,7 @@ public class TokenRepository implements TokenRepositoryType {
                     List<BigInteger> balanceArray = null;
                     List<Integer> burnArray = null;
                     BigDecimal balance = null;
+                    TokenInfo tInfo = token.tokenInfo;
                     if (token.tokenInfo.isStormbird)
                     {
                         Ticket t = (Ticket) token;
@@ -529,6 +530,17 @@ public class TokenRepository implements TokenRepositoryType {
                     else
                     {
                         balance = getBalance(wallet, token.tokenInfo);
+                        if (balance != null && balance.equals(BigDecimal.valueOf(-1))) //we found a suspicious token that is probably a ticket
+                        {
+                            if (token.getAddress().equals("0xE10455c990CF6C97FbDE2B69E5FFD1644F4F5b9D"))
+                            {
+                                System.out.print("yoless");
+                            }
+                            //(String address, String name, String symbol, int decimals, boolean isEnabled, boolean isStormbird)
+                            tInfo = new TokenInfo(token.getAddress(), token.tokenInfo.name, token.tokenInfo.symbol, token.tokenInfo.decimals, token.tokenInfo.isEnabled, true);
+                            //this is returning a ticket balance. We should change the token
+                            balanceArray = getBalanceArray(wallet, tInfo);
+                        }
                     }
 
                     //This code, together with an account with many tokens on it thrashes the Token view update
@@ -537,7 +549,7 @@ public class TokenRepository implements TokenRepositoryType {
 //                    throw new BadContract();
 //                }
 
-                    Token updated = tFactory.createToken(token.tokenInfo, balance, balanceArray, burnArray, System.currentTimeMillis());
+                    Token updated = tFactory.createToken(tInfo, balance, balanceArray, burnArray, System.currentTimeMillis());
                     localSource.updateTokenBalance(network, wallet, updated);
                     return updated;
                 }
@@ -733,7 +745,7 @@ public class TokenRepository implements TokenRepositoryType {
         if (values.isEmpty()) return value;
         else if (values.size() > 0)
         {
-            return BigDecimal.ZERO;
+            return BigDecimal.valueOf(-1);
         }
         else
         {
