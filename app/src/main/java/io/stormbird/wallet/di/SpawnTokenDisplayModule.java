@@ -8,6 +8,7 @@ import io.stormbird.wallet.router.HomeRouter;
 import io.stormbird.wallet.router.MyAddressRouter;
 import io.stormbird.wallet.router.TransferTicketRouter;
 import io.stormbird.wallet.service.AssetDefinitionService;
+import io.stormbird.wallet.service.TokensService;
 import io.stormbird.wallet.viewmodel.SpawnTokenDisplayViewModelFactory;
 
 @Module
@@ -19,9 +20,10 @@ public class SpawnTokenDisplayModule
             TransferTicketRouter transferTicketRouter,
             HomeRouter homeRouter,
             MyAddressRouter myAddressRouter,
-            AssetDefinitionService assetDefinitionService) {
+            AssetDefinitionService assetDefinitionService,
+            TokensService tokensService) {
         return new SpawnTokenDisplayViewModelFactory(
-                fetchTokensInteract, transferTicketRouter, homeRouter, myAddressRouter, assetDefinitionService);
+                fetchTokensInteract, transferTicketRouter, homeRouter, myAddressRouter, assetDefinitionService, tokensService);
     }
 
     @Provides

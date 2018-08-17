@@ -123,11 +123,10 @@ public class SetupTokensInteract {
                     ct.interpretTransferFrom(walletAddr, data);
                     break;
                 case "transfer(address,uint16[])":
-                    if (ct == null)
+                    if (ct != null)
                     {
-                        System.out.print("yoless");
+                        ct.interpretTransfer(walletAddr, data);
                     }
-                    ct.interpretTransfer(walletAddr, data);
                     break;
                 case "transfer(address,uint256)": //ERC20 transfer
                     op.from = thisTrans.from;
@@ -310,10 +309,6 @@ public class SetupTokensInteract {
      */
     public Observable<Transaction[]> processTokenTransactions(Wallet wallet, TokenTransaction[] txList, TokensService tokensService)
     {
-        if (txList.length > 0)
-        {
-            System.out.println("process " + txList[0].token.getAddress());
-        }
         return Observable.fromCallable(() -> {
             List<Transaction> processedTransactions = new ArrayList<Transaction>();
             try {

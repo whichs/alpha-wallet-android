@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TokenDefinition {
     protected Document xml;
     public Map<String, AttributeType> attributes = new ConcurrentHashMap<>();
+    public Map<String, String> features = new ConcurrentHashMap<>();
     protected Locale locale;
     public Map<String, Integer> addresses = new HashMap<>();
 
@@ -50,8 +51,6 @@ public class TokenDefinition {
     protected String feemasterAPI = null;
     protected String tokenName = null;
     protected String keyName = null;
-    protected String customSpawn = null; //I don't like this - but it can't be an attribute
-    protected int networkId = 1; //default to main net unless otherwise specified
 
     public enum Syntax {
         DirectoryString, IA5String, Integer, GeneralizedTime,
@@ -288,12 +287,18 @@ public class TokenDefinition {
                     marketQueueAPI = getContentByTagName(feature, "gateway");
                     break;
                 case "custom-spawn":
-                    customSpawn = getContentByTagName(feature, "spawnmessage");
+                    addFeature(feature, "spawnmessage");
+                    addFeature(feature, "tokenactionname");
                     break;
                 default:
                     break;
             }
         }
+    }
+
+    private void addFeature(Element feature, String tag)
+    {
+        features.put(tag, getContentByTagName(feature, tag));
     }
 
     private void extractContractTag(Document xml) {
@@ -331,13 +336,13 @@ public class TokenDefinition {
 
     public boolean hasCustomSpawn()
     {
+        String customSpawn = features.get("spawnmessage");
         return customSpawn != null;
     }
 
     /* take a token ID in byte-32, find all the fields in it and call back
      * token.setField(fieldID, fieldName, text-value). This is abandoned
      * temporarily for the need to retrofit the class with J.B.'s design */
-
     public void parseField(BigInteger tokenId, NonFungibleToken token) {
         for (String key : attributes.keySet()) {
             AttributeType attr = attributes.get(key);
@@ -346,7 +351,7 @@ public class TokenDefinition {
                     new NonFungibleToken.Attribute(attr.id, attr.name, val, attr.toString(val)));
         }
 
-        if (customSpawn != null)
+        if (hasCustomSpawn())
         {
             byte[] nullArray = new byte[1];
             nullArray[0] = 0;

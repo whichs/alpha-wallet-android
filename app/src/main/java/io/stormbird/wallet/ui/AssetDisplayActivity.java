@@ -9,6 +9,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.FinishReceiver;
@@ -117,6 +118,14 @@ public class AssetDisplayActivity extends BaseActivity implements View.OnClickLi
             list.setAdapter(adapter);
             balance = ticket.getFullBalance();
             burnList = ticket.getBurnListStr();
+        }
+
+        if (ticket.isCustomSpawnable(viewModel.getAssetDefinitionService()) && t.hasPositiveBalance())
+        {
+            //change 'use' button
+            Button b = findViewById(R.id.button_use);
+            String actionName = ticket.getTokenActionOverride(this, viewModel.getAssetDefinitionService());
+            b.setText(actionName);
         }
     }
 

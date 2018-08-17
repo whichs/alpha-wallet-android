@@ -532,11 +532,6 @@ public class TokenRepository implements TokenRepositoryType {
                         balance = getBalance(wallet, token.tokenInfo);
                         if (balance != null && balance.equals(BigDecimal.valueOf(-1))) //we found a suspicious token that is probably a ticket
                         {
-                            if (token.getAddress().equals("0xE10455c990CF6C97FbDE2B69E5FFD1644F4F5b9D"))
-                            {
-                                System.out.print("yoless");
-                            }
-                            //(String address, String name, String symbol, int decimals, boolean isEnabled, boolean isStormbird)
                             tInfo = new TokenInfo(token.getAddress(), token.tokenInfo.name, token.tokenInfo.symbol, token.tokenInfo.decimals, token.tokenInfo.isEnabled, true);
                             //this is returning a ticket balance. We should change the token
                             balanceArray = getBalanceArray(wallet, tInfo);

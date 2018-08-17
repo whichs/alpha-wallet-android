@@ -127,6 +127,7 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         viewModel.checkContractNetwork().observe(this, this::checkContractNetwork);
         viewModel.ticketNotValid().observe(this, this::onInvalidTicket);
         viewModel.isCutomSpawnToken().observe(this, this::onCustomSpawnToken);
+        viewModel.finishImport().observe(this, this::finish);
 
         ticketRange = null;
 
@@ -227,19 +228,27 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
 
     private void onInvalidTicket(Boolean aBoolean)
     {
-        TextView tv = findViewById(R.id.text_ticket_range);
-        tv.setVisibility(View.GONE);
-        importTxt.setVisibility(View.GONE);
-        setTicket(false, false, true);
-        //bad link
-        hideDialog();
-        aDialog = new AWalletAlertDialog(this);
-        aDialog.setIcon(AWalletAlertDialog.ERROR);
-        aDialog.setTitle(R.string.ticket_not_valid);
-        aDialog.setMessage(R.string.ticket_not_valid_body);
-        aDialog.setButtonText(R.string.action_cancel);
-        aDialog.setButtonListener(v -> aDialog.dismiss());
-        aDialog.show();
+        if (!aBoolean)
+        {
+            new HomeRouter().open(this, true);
+            finish();
+        }
+        else
+        {
+            TextView tv = findViewById(R.id.text_ticket_range);
+            tv.setVisibility(View.GONE);
+            importTxt.setVisibility(View.GONE);
+            setTicket(false, false, true);
+            //bad link
+            hideDialog();
+            aDialog = new AWalletAlertDialog(this);
+            aDialog.setIcon(AWalletAlertDialog.ERROR);
+            aDialog.setTitle(R.string.ticket_not_valid);
+            aDialog.setMessage(R.string.ticket_not_valid_body);
+            aDialog.setButtonText(R.string.action_cancel);
+            aDialog.setButtonListener(v -> aDialog.dismiss());
+            aDialog.show();
+        }
     }
 
     private void onBadLink(Boolean aBoolean)
@@ -563,5 +572,10 @@ public class ImportTokenActivity extends BaseActivity implements View.OnClickLis
         }
 
         return magiclink;
+    }
+
+    private void finish(boolean finishValue)
+    {
+        finish();
     }
 }

@@ -84,6 +84,7 @@ public class ImportTokenViewModel extends BaseViewModel
     private final MutableLiveData<String> checkContractNetwork = new MutableLiveData<>();
     private final MutableLiveData<Boolean> ticketNotValid = new MutableLiveData<>();
     private final MutableLiveData<Boolean> customSpawnToken = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> finishImport = new MutableLiveData<>();
 
     private MagicLinkData importOrder;
     private String univeralImportLink;
@@ -137,6 +138,8 @@ public class ImportTokenViewModel extends BaseViewModel
     public LiveData<String> checkContractNetwork() { return checkContractNetwork; }
     public LiveData<Boolean> ticketNotValid() { return ticketNotValid; }
     public LiveData<Boolean> isCutomSpawnToken() { return customSpawnToken; }
+    public LiveData<Boolean> finishImport() { return finishImport; }
+
     public double getUSDPrice() { return ethToUsd; };
 
     public void prepare(String importDataStr) {
@@ -240,6 +243,7 @@ public class ImportTokenViewModel extends BaseViewModel
         }
     }
 
+    // TODO: This should try fetching the definition file from the server
     private void fetchTokensAtAddress(Context ctx)
     {
         assetDefinitionService.checkExternalDirectoryAndLoad();
@@ -256,7 +260,6 @@ public class ImportTokenViewModel extends BaseViewModel
         {
             if (assetDefinitionService.getAssetDefinition(address).hasCustomSpawn())
             {
-                System.out.println("Addrs: " + address);
                 passList.add(address);
             }
         }
@@ -265,11 +268,12 @@ public class ImportTokenViewModel extends BaseViewModel
         {
             //now open ticket view showing all relevant spawn tokens at this address
             spawnTokenDisplayRouter.open(ctx, passList, importOrder.contractAddress);
+            finishImport.postValue(true);
         }
         else
         {
             //close import
-
+            ticketNotValid.postValue(false);
         }
     }
 

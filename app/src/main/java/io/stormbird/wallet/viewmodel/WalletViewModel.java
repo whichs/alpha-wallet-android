@@ -156,6 +156,7 @@ public class WalletViewModel extends BaseViewModel {
 
         updateTokens = getWallet()
                         .flatMap(fetchTokensInteract::fetchStoredWithEth)
+                        .filter(token -> token != null)
                         .subscribeOn(Schedulers.newThread())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(this::onTokens, this::onError, this::onFetchTokensCompletable);
@@ -186,7 +187,7 @@ public class WalletViewModel extends BaseViewModel {
         // Sometimes the network times out or some other issue.
         Disposable d = Observable.fromCallable(tokensService::getAllTokens)
                 .flatMapIterable(token -> token)
-                .filter(token -> (token.tokenInfo.name == null && !token.isTerminated()))
+                .filter(token -> (token != null && token.tokenInfo.name == null && !token.isTerminated()))
                 .flatMap(token-> fetchTokensInteract.getTokenInfo(token.getAddress()))
                 .subscribeOn(Schedulers.io())
                 .subscribe(this::receiveTokenInfo, this::onError);
@@ -211,7 +212,7 @@ public class WalletViewModel extends BaseViewModel {
         fetchTokenBalanceDisposable = Observable.interval(0, GET_BALANCE_INTERVAL, TimeUnit.SECONDS)
                 .doOnNext(l -> Observable.fromCallable(tokensService::getAllTokens)
                         .flatMapIterable(token -> token)
-                        .filter(token -> (token.tokenInfo.name != null && !token.isTerminated()))
+                        .filter(token -> (token != null && token.tokenInfo.name != null && !token.isTerminated()))
                         .flatMap(fetchTokensInteract::updateDefaultBalance)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())

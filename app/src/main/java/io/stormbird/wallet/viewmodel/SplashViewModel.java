@@ -125,9 +125,6 @@ public class SplashViewModel extends ViewModel {
 
     private void keyAdded(Wallet wallet)
     {
-        //success
-        System.out.println("Imported wallet at addr: " + wallet.address);
-
         //continue chain
         fetchWallets();
     }

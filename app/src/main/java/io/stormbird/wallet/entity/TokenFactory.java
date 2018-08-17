@@ -63,7 +63,6 @@ public class TokenFactory
         Token thisToken = null;
         try
         {
-            if ()
             if (tokenInfo.isStormbird)
             {
                 String balances = realmItem.getBalance();

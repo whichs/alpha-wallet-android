@@ -76,7 +76,7 @@ public class TokensService
     {
         for (Token t : tokens)
         {
-            tokenMap.put(t.getAddress(), t);
+            if (t != null) tokenMap.put(t.getAddress(), t);
         }
     }
 }

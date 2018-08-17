@@ -2,6 +2,7 @@ package io.stormbird.wallet.ui;
 
 import android.arch.lifecycle.ViewModelProviders;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.LinearLayoutManager;
@@ -9,6 +10,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 
 import java.util.ArrayList;
 
@@ -21,6 +23,8 @@ import io.stormbird.wallet.entity.FinishReceiver;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.entity.TokenInfo;
+import io.stormbird.wallet.router.HomeRouter;
+import io.stormbird.wallet.ui.widget.adapter.GenericNFTAdapter;
 import io.stormbird.wallet.ui.widget.adapter.TicketAdapter;
 import io.stormbird.wallet.viewmodel.SpawnTokenDisplayViewModel;
 import io.stormbird.wallet.viewmodel.SpawnTokenDisplayViewModelFactory;
@@ -43,9 +47,7 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
     private ArrayList<String> contractAddresses;
     private String remoteAddress;
-    private TicketAdapter adapter;
-    private String balance = null;
-    private String burnList = null;
+    private GenericNFTAdapter adapter;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState)
@@ -77,7 +79,7 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
         viewModel.pushToast().observe(this, this::displayToast);
         viewModel.ticket().observe(this, this::onTokenUpdate);
 
-        //adapter = new TicketAdapter(this::onTicketIdClick, ticket, viewModel.getAssetDefinitionService());
+        adapter = new GenericNFTAdapter(viewModel.getAssetDefinitionService(), viewModel.getTokensService());
         list.setLayoutManager(new LinearLayoutManager(this));
         list.setAdapter(adapter);
         list.setHapticFeedbackEnabled(true);
@@ -85,6 +87,14 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
         findViewById(R.id.button_use).setOnClickListener(this);
         findViewById(R.id.button_sell).setOnClickListener(this);
         findViewById(R.id.button_transfer).setOnClickListener(this);
+
+        Button use = findViewById(R.id.button_use);
+        Button sell = findViewById(R.id.button_sell);
+        Button transfer = findViewById(R.id.button_transfer);
+
+        use.setText("Claim");
+        sell.setText("Place");
+        transfer.setText("Cancel");
 
         finishReceiver = new FinishReceiver(this);
     }
@@ -105,19 +115,9 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
     private void onTokenUpdate(Token t)
     {
-        //add this to screen
-        RecyclerView list = findViewById(R.id.listTickets);
-
-//        ticket = (Ticket) t;
-//        if (!ticket.getBurnListStr().equals(burnList) || !ticket.getFullBalance().equals(balance))
-//        {
-//            adapter.setTicket(ticket);
-//            RecyclerView list = findViewById(R.id.listTickets);
-//            list.setAdapter(null);
-//            list.setAdapter(adapter);
-//            balance = ticket.getFullBalance();
-//            burnList = ticket.getBurnListStr();
-//        }
+        //add these tokens to the view
+        adapter.addTicket((Ticket)t);
+        list.setAdapter(adapter);
     }
 
     @Override
@@ -130,11 +130,22 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
     @Override
     public boolean onOptionsItemSelected(MenuItem item)
     {
-        if (item.getItemId() == R.id.action_qr)
+        switch (item.getItemId())
         {
-            //viewModel.showContractInfo(this, ticket.getAddress());
+            case android.R.id.home:
+                new HomeRouter().open(this, true);
+                break;
+            case R.id.action_qr:
+                break;
         }
+
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        new HomeRouter().open(this, true);
     }
 
     @Override
@@ -144,26 +155,22 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
         {
             case R.id.button_use:
             {
-                //viewModel.selectAssetIdsToRedeem(this, ticket);
+                //this is now claim
+                //pick up the bug
+
             }
             break;
             case R.id.button_sell:
             {
-                //viewModel.sellTicketRouter(this, ticket);// showSalesOrder(this, ticket);
+                //this is now place - TODO: go to token view and switch on filter for spawn custom tokens
             }
             break;
             case R.id.button_transfer:
             {
-                //viewModel.showTransferToken(this, ticket);
+                new HomeRouter().open(this, true);
+                finish();
             }
             break;
         }
-    }
-
-    private void onTicketIdClick(View view, TicketRange range)
-    {
-        Context context = view.getContext();
-
-        //TODO: Perform some action when token is clicked
     }
 }

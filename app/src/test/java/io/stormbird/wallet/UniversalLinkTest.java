@@ -161,7 +161,8 @@ public class UniversalLinkTest
             String ownerAddress = "0x" + ecRecoverAddress();
 
             //now try to read all the links
-            for (OrderData data : orders) {
+            for (OrderData data : orders)
+            {
                 MagicLinkData order = parser.parseUniversalLink(data.link);
                 parser.getOwnerKey(order);
                 Sign.SignatureData signature = sigFromByteArray(order.signature);
