@@ -91,7 +91,6 @@ public class SpawnTokenDisplayViewModel extends BaseViewModel
                 .subscribeOn(Schedulers.from(threadPoolExecutor))
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(this::receiveTokenBalance, this::onError);
-
     }
 
     public TokensService getTokensService()

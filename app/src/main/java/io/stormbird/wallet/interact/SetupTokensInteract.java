@@ -117,16 +117,13 @@ public class SetupTokensInteract {
             switch (functionName)
             {
                 case "trade(uint256,uint16[],uint8,bytes32,bytes32)":
-                    ct.interpretTradeData(walletAddr, thisTrans);
+                    if (ct != null) ct.interpretTradeData(walletAddr, thisTrans);
                     break;
                 case "transferFrom(address,address,uint16[])":
-                    ct.interpretTransferFrom(walletAddr, data);
+                    if (ct != null) ct.interpretTransferFrom(walletAddr, data);
                     break;
                 case "transfer(address,uint16[])":
-                    if (ct != null)
-                    {
-                        ct.interpretTransfer(walletAddr, data);
-                    }
+                    if (ct != null) ct.interpretTransfer(walletAddr, data);
                     break;
                 case "transfer(address,uint256)": //ERC20 transfer
                     op.from = thisTrans.from;
@@ -136,14 +133,14 @@ public class SetupTokensInteract {
                     op.value = String.valueOf(data.getFirstValue());
                     break;
                 case "loadNewTickets(bytes32[])":
-                    ct.setOperation(R.string.ticket_load_new_tickets);
+                    if (ct != null) ct.setOperation(R.string.ticket_load_new_tickets);
                     op.from = thisTrans.from;
                     op.to = token != null ? token.getAddress() : "";
                     op.transactionId = thisTrans.hash;
                     op.value = String.valueOf(data.paramValues.size());
                     break;
                 case "passTo(uint256,uint16[],uint8,bytes32,bytes32,address)":
-                    ct.interpretPassTo(walletAddr, data);
+                    if (ct != null) ct.interpretPassTo(walletAddr, data);
                     op.from = thisTrans.from;
                     op.to = data.getFirstAddress();
                     op.transactionId = thisTrans.hash;
@@ -152,9 +149,12 @@ public class SetupTokensInteract {
                     break;
                 case "endContract()":
                 case "SelfDestruct()":
-                    ct.setOperation(R.string.ticket_terminate_contract);
-                    ct.name = thisTrans.to;
-                    ct.setType(-2);
+                    if (ct != null)
+                    {
+                        ct.setOperation(R.string.ticket_terminate_contract);
+                        ct.name = thisTrans.to;
+                        ct.setType(-2);
+                    }
                     if (token != null && !token.isTerminated()) tokensService.scheduleForTermination(token.getAddress());
                     break;
                 case CONTRACT_CONSTRUCTOR:

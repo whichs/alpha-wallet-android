@@ -17,6 +17,7 @@ public class RealmToken extends RealmObject {
     private boolean isStormbird;
     private String burnList;
     private int nullCheckCount = 0;
+    private boolean isCustomSpawnable;
 
     public int getDecimals() {
         return decimals;
@@ -119,5 +120,14 @@ public class RealmToken extends RealmObject {
     public int getNullCheckCount()
     {
         return nullCheckCount;
+    }
+
+    public boolean isCustomSpawnable()
+    {
+        return isCustomSpawnable;
+    }
+    public void setCustomSpawnable(boolean customSpawnable)
+    {
+        isCustomSpawnable = customSpawnable;
     }
 }

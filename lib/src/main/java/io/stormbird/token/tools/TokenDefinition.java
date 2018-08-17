@@ -362,7 +362,7 @@ public class TokenDefinition {
             byte[] parsedMessage = null;
             int pIndex = -1;
 
-            for (int m = 2; m < bMessage.length; m++)
+            for (int m = 0; m < bMessage.length; m++)
             {
                 if (pIndex >= 0)
                 {

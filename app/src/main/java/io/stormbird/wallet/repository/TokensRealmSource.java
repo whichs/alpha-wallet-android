@@ -503,6 +503,7 @@ public class TokensRealmSource implements TokenLocalSource {
                 realmToken.setAddedTime(currentTime.getTime());
                 realmToken.setEnabled(true);
                 realmToken.setBurnList("");
+                realmToken.setCustomSpawnable(token.isCustomSpawnable());
 
                 if (token instanceof Ticket) {
                     realmToken.setStormbird(true);
@@ -523,6 +524,10 @@ public class TokensRealmSource implements TokenLocalSource {
                     realmToken.setDecimals(token.tokenInfo.decimals);
                     realmToken.setAddedTime(currentTime.getTime());
                     realmToken.setEnabled(true);
+                    realmToken.setCustomSpawnable(token.isCustomSpawnable());
+                    if (token instanceof Ticket) {
+                        realmToken.setStormbird(true);
+                    }
                     realm.commitTransaction();
                     TransactionsRealmCache.subRealm();
                 }

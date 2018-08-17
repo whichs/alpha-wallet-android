@@ -115,9 +115,12 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
     private void onTokenUpdate(Token t)
     {
-        //add these tokens to the view
-        adapter.addTicket((Ticket)t);
-        list.setAdapter(adapter);
+        if (t != null && t instanceof Ticket)
+        {
+            //add these tokens to the view
+            adapter.addTicket((Ticket) t);
+            list.setAdapter(adapter);
+        }
     }
 
     @Override

@@ -331,4 +331,6 @@ public class Token implements Parcelable
     {
         return tokenInfo.name == null || tokenInfo.name.length() < 2;
     }
+    public void setIsCustomSpawnable(boolean custom) { };
+    public boolean isCustomSpawnable() { return false; }
 }

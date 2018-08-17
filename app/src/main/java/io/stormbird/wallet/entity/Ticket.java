@@ -51,6 +51,7 @@ public class Ticket extends Token implements Parcelable
     public final List<BigInteger> balanceArray;
     private List<Integer> burnIndices;
     private boolean isMatchedInXML = false;
+    private boolean isCustomSpawnable = false;
 
     public Ticket(TokenInfo tokenInfo, List<BigInteger> balances, List<Integer> burned, long blancaTime) {
         super(tokenInfo, BigDecimal.ZERO, blancaTime);
@@ -66,6 +67,7 @@ public class Ticket extends Token implements Parcelable
 
     private Ticket(Parcel in) {
         super(in);
+        isCustomSpawnable = in.readInt() == 0;
         balanceArray = new ArrayList<>();
         burnIndices = new ArrayList<Integer>();
         int objSize = in.readInt();
@@ -123,6 +125,7 @@ public class Ticket extends Token implements Parcelable
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         super.writeToParcel(dest, flags);
+        dest.writeInt(isCustomSpawnable ? 1 : 0);
         dest.writeInt(balanceArray.size());
         dest.writeInt(burnIndices.size());
         if (balanceArray.size() > 0) dest.writeArray(balanceArray.toArray());
@@ -490,8 +493,10 @@ public class Ticket extends Token implements Parcelable
 
     public boolean isCustomSpawnable(AssetDefinitionService assetDefinitionService)
     {
+        if (isCustomSpawnable) return true;
         TokenDefinition td = assetDefinitionService.getAssetDefinition(getAddress());
-        return td.hasCustomSpawn();
+        isCustomSpawnable = td.hasCustomSpawn();
+        return isCustomSpawnable;
     }
 
     public String getTokenActionOverride(Context ctx, AssetDefinitionService assetDefinitionService)
@@ -696,4 +701,5 @@ public class Ticket extends Token implements Parcelable
     {
         return isMatchedInXML;
     }
+    public void setIsCustomSpawnable(boolean custom) { isCustomSpawnable = custom; };
 }

@@ -3,9 +3,11 @@ package io.stormbird.wallet.entity;
 import android.text.TextUtils;
 
 import io.stormbird.wallet.repository.entity.RealmToken;
+import jnr.ffi.annotations.In;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 
 import static io.stormbird.wallet.repository.TokensRealmSource.ACTUAL_BALANCE_INTERVAL;
@@ -46,6 +48,7 @@ public class TokenFactory
             String balances = realmItem.getBalance();
             String burnList = realmItem.getBurnList();
             thisToken = new Ticket(tokenInfo, balances, burnList, updateBlancaTime);
+            if (realmItem.isCustomSpawnable()) thisToken.setIsCustomSpawnable(true);
         }
         else
         {
@@ -92,7 +95,7 @@ public class TokenFactory
         Token thisToken;
         if (tokenInfo.isStormbird)
         {
-            thisToken = new Ticket(tokenInfo, (List<BigInteger>)null, (List<Integer>)null, 0);
+            thisToken = new Ticket(tokenInfo, new ArrayList<BigInteger>(), new ArrayList<Integer>(), 0);
         }
         else
         {
