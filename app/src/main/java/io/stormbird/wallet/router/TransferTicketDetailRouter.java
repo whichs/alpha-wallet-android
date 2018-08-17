@@ -10,6 +10,7 @@ import io.stormbird.wallet.ui.TransferTicketDetailActivity;
 
 import static io.stormbird.wallet.C.EXTRA_STATE;
 import static io.stormbird.wallet.C.EXTRA_TOKENID_LIST;
+import static io.stormbird.wallet.C.IMPORT_STRING;
 import static io.stormbird.wallet.C.Key.TICKET;
 import static io.stormbird.wallet.C.Key.WALLET;
 
@@ -34,6 +35,17 @@ public class TransferTicketDetailRouter {
         intent.putExtra(TICKET, token);
         intent.putExtra(EXTRA_TOKENID_LIST, ticketIDs);
         intent.putExtra(EXTRA_STATE, state);
+        intent.setFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+        context.startActivity(intent);
+    }
+
+    public void openClaim(Context context, Token token, String ticketIDs, Wallet wallet, int state, String importOrder) {
+        Intent intent = new Intent(context, TransferTicketDetailActivity.class);
+        intent.putExtra(WALLET, wallet);
+        intent.putExtra(TICKET, token);
+        intent.putExtra(EXTRA_TOKENID_LIST, ticketIDs);
+        intent.putExtra(EXTRA_STATE, state);
+        intent.putExtra(IMPORT_STRING, importOrder);
         intent.setFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
         context.startActivity(intent);
     }

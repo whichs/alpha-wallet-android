@@ -5,6 +5,9 @@ import android.arch.lifecycle.MutableLiveData;
 import android.content.Context;
 import android.util.Log;
 
+import org.web3j.tx.Contract;
+
+import io.stormbird.token.entity.MagicLinkData;
 import io.stormbird.wallet.entity.CryptoFunctions;
 import io.stormbird.wallet.entity.ErrorEnvelope;
 import io.stormbird.wallet.entity.GasSettings;
@@ -32,6 +35,8 @@ import java.math.BigInteger;
 import java.util.List;
 
 import static io.stormbird.wallet.C.ErrorCode.EMPTY_COLLECTION;
+import static io.stormbird.wallet.entity.MagicLinkParcel.generateCustomSpawnableTradeData;
+import static io.stormbird.wallet.entity.MagicLinkParcel.generateSpawnPickFrom;
 import static io.stormbird.wallet.service.MarketQueueService.sigFromByteArray;
 
 /**
@@ -212,5 +217,16 @@ public class TransferTicketDetailViewModel extends BaseViewModel {
     public void showAssets(Context ctx, Ticket ticket, boolean isClearStack)
     {
         assetDisplayRouter.open(ctx, ticket, isClearStack);
+    }
+
+    public void createClaimTransfer(String to, String address, int index, BigInteger gasPrice, BigInteger gasLimit, MagicLinkData order)
+    {
+        final byte[] tradeData = generateSpawnPickFrom(order, address, index);
+        disposable = createTransactionInteract
+                .create(defaultWallet.getValue(), order.contractAddress, order.priceWei,
+                        gasPrice, gasLimit, tradeData)
+                .subscribe(this::onCreateTransaction, this::onError);
+
+        //ensure token is added to wallet watch list
     }
 }

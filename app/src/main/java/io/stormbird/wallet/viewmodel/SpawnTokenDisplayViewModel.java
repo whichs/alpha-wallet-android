@@ -7,6 +7,7 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -26,11 +27,16 @@ import io.stormbird.wallet.entity.TokenFactory;
 import io.stormbird.wallet.entity.TokenInfo;
 import io.stormbird.wallet.entity.Wallet;
 import io.stormbird.wallet.interact.FetchTokensInteract;
+import io.stormbird.wallet.interact.FindDefaultNetworkInteract;
+import io.stormbird.wallet.interact.FindDefaultWalletInteract;
 import io.stormbird.wallet.router.HomeRouter;
 import io.stormbird.wallet.router.MyAddressRouter;
+import io.stormbird.wallet.router.TransferTicketDetailRouter;
 import io.stormbird.wallet.router.TransferTicketRouter;
 import io.stormbird.wallet.service.AssetDefinitionService;
 import io.stormbird.wallet.service.TokensService;
+
+import static io.stormbird.wallet.ui.TransferTicketDetailActivity.CLAIM_TRANSFER;
 
 public class SpawnTokenDisplayViewModel extends BaseViewModel
 {
@@ -40,6 +46,9 @@ public class SpawnTokenDisplayViewModel extends BaseViewModel
     private final MyAddressRouter myAddressRouter;
     private final AssetDefinitionService assetDefinitionService;
     private final TokensService tokensService;
+    private final TransferTicketDetailRouter transferTicketDetailRouter;
+    private final FindDefaultNetworkInteract findDefaultNetworkInteract;
+    private final FindDefaultWalletInteract findDefaultWalletInteract;
 
     private final HomeRouter homeRouter;
 
@@ -47,19 +56,28 @@ public class SpawnTokenDisplayViewModel extends BaseViewModel
     private final MutableLiveData<Wallet> defaultWallet = new MutableLiveData<>();
     private final MutableLiveData<Token> ticket = new MutableLiveData<>();
 
+    private List<String> contracts;
+    private String repositoryAddress;
+
     SpawnTokenDisplayViewModel(
             FetchTokensInteract fetchTokensInteract,
             TransferTicketRouter transferTicketRouter,
             HomeRouter homeRouter,
             MyAddressRouter myAddressRouter,
             AssetDefinitionService assetDefinitionService,
-            TokensService tokensService) {
+            TokensService tokensService,
+            TransferTicketDetailRouter transferTicketDetailRouter,
+            FindDefaultNetworkInteract findDefaultNetworkInteract,
+            FindDefaultWalletInteract findDefaultWalletInteract) {
         this.fetchTokensInteract = fetchTokensInteract;
         this.transferTicketRouter = transferTicketRouter;
         this.homeRouter = homeRouter;
         this.myAddressRouter = myAddressRouter;
         this.assetDefinitionService = assetDefinitionService;
         this.tokensService = tokensService;
+        this.transferTicketDetailRouter = transferTicketDetailRouter;
+        this.findDefaultNetworkInteract = findDefaultNetworkInteract;
+        this.findDefaultWalletInteract = findDefaultWalletInteract;
     }
 
     @Override
@@ -77,8 +95,31 @@ public class SpawnTokenDisplayViewModel extends BaseViewModel
 
     public void prepare(ArrayList<String> contracts, String checkAddress)
     {
+        this.contracts = contracts;
+        repositoryAddress = checkAddress;
+        disposable = findDefaultNetworkInteract
+                .find()
+                .subscribe(this::onDefaultNetwork, this::onError);
+    }
+
+    private void onDefaultNetwork(NetworkInfo networkInfo)
+    {
+        defaultNetwork.postValue(networkInfo);
+        disposable = findDefaultWalletInteract
+                .find()
+                .subscribe(this::onDefaultWallet, this::onError);
+    }
+
+    private void onDefaultWallet(Wallet wallet)
+    {
+        defaultWallet.setValue(wallet);
+        fetchRepositoryContent();
+    }
+
+    private void fetchRepositoryContent()
+    {
         final ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(3);
-        final Wallet wallet = new Wallet(checkAddress);
+        final Wallet wallet = new Wallet(repositoryAddress);
         //fetch contracts
         //first get the tokens
         //can't scan existing database (yet!) so we need to fetch the tokens from live
@@ -119,6 +160,18 @@ public class SpawnTokenDisplayViewModel extends BaseViewModel
 
     public void showHome(Context context, boolean isClearStack) {
         homeRouter.open(context, isClearStack);
+    }
+
+    public void showTransferToken(Context context, Ticket ticket) {
+        if (disposable != null) {
+            disposable.dispose();
+        }
+        transferTicketRouter.open(context, ticket);
+    }
+
+    public void openTransferState(Context context, Ticket ticket, String ticketIds, String importOrder)
+    {
+        transferTicketDetailRouter.openClaim(context, ticket, ticketIds, defaultWallet.getValue(), CLAIM_TRANSFER, importOrder);
     }
 
 }

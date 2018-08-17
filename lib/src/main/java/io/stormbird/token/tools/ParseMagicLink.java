@@ -27,13 +27,14 @@ public class ParseMagicLink
 {
     public final static BigInteger maxPrice = Convert.toWei(BigDecimal.valueOf(0xFFFFFFFFL),
                                                             Convert.Unit.SZABO).toBigInteger();
+    public final static String IMPORT_LINK_PREFIX = "https://app.awallet.io/";
 
     private CryptoFunctionsInterface cryptoInterface;
 
-    public ParseMagicLink()
-    {
-
-    }
+//    public ParseMagicLink()
+//    {
+//        //show throw an error here
+//    }
 
     public ParseMagicLink(CryptoFunctionsInterface cryptInf)
     {
@@ -86,7 +87,7 @@ public class ParseMagicLink
      */
     public MagicLinkData parseUniversalLink(String link) throws SalesOrderMalformed
     {
-        final String importTemplate = "https://app.awallet.io/";
+        final String importTemplate = IMPORT_LINK_PREFIX;
         int offset = link.indexOf(importTemplate);
         if (offset > -1)
         {

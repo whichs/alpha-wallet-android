@@ -50,6 +50,7 @@ import io.stormbird.token.tools.ParseMagicLink;
 import static io.stormbird.wallet.C.ErrorCode.EMPTY_COLLECTION;
 import static io.stormbird.wallet.entity.MagicLinkParcel.generateCustomSpawnableTradeData;
 import static io.stormbird.wallet.entity.MagicLinkParcel.generateReverseTradeData;
+import static io.stormbird.wallet.entity.MagicLinkParcel.generateSpawnPickFrom;
 
 /**
  * Created by James on 9/03/2018.
@@ -267,7 +268,8 @@ public class ImportTokenViewModel extends BaseViewModel
         if (passList.size() > 0)
         {
             //now open ticket view showing all relevant spawn tokens at this address
-            spawnTokenDisplayRouter.open(ctx, passList, importOrder.contractAddress);
+            //final byte[] tradeData = generateSpawnPickFrom(importOrder, wallet.getValue().address);
+            spawnTokenDisplayRouter.open(ctx, passList, importOrder.contractAddress, univeralImportLink);
             finishImport.postValue(true);
         }
         else

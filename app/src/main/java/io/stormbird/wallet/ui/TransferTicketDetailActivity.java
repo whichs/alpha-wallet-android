@@ -1,5 +1,6 @@
 package io.stormbird.wallet.ui;
 
+import android.annotation.SuppressLint;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.arch.lifecycle.ViewModelProviders;
@@ -27,7 +28,9 @@ import android.widget.Toast;
 
 import org.web3j.abi.datatypes.Address;
 import org.web3j.tx.Contract;
+import org.web3j.utils.Numeric;
 
+import java.math.BigInteger;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -38,7 +41,10 @@ import java.util.Set;
 import javax.inject.Inject;
 
 import dagger.android.AndroidInjection;
+import io.stormbird.token.entity.MagicLinkData;
+import io.stormbird.token.tools.ParseMagicLink;
 import io.stormbird.wallet.R;
+import io.stormbird.wallet.entity.CryptoFunctions;
 import io.stormbird.wallet.entity.ErrorEnvelope;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.Wallet;
@@ -59,6 +65,7 @@ import io.stormbird.token.entity.TicketRange;
 
 import static io.stormbird.wallet.C.EXTRA_STATE;
 import static io.stormbird.wallet.C.EXTRA_TOKENID_LIST;
+import static io.stormbird.wallet.C.IMPORT_STRING;
 import static io.stormbird.wallet.C.Key.TICKET;
 import static io.stormbird.wallet.C.Key.WALLET;
 import static io.stormbird.wallet.C.PRUNE_ACTIVITY;
@@ -75,6 +82,7 @@ public class TransferTicketDetailActivity extends BaseActivity
     private static final int PICK_TRANSFER_METHOD = 1;
     private static final int TRANSFER_USING_LINK = 2;
     private static final int TRANSFER_TO_ADDRESS = 3;
+    public  static final int CLAIM_TRANSFER = 4;
 
     @Inject
     protected TransferTicketDetailViewModelFactory viewModelFactory;
@@ -87,6 +95,7 @@ public class TransferTicketDetailActivity extends BaseActivity
 
     private Ticket ticket;
     private TicketAdapter adapter;
+    private Wallet wallet;
 
     private TextView titleText;
     private TextView toAddressError;
@@ -98,6 +107,7 @@ public class TransferTicketDetailActivity extends BaseActivity
     private String ticketIds;
     private String prunedIds;
     private int transferStatus;
+    private String importOrder;
 
     private AWalletConfirmationDialog confirmationDialog;
 
@@ -124,9 +134,10 @@ public class TransferTicketDetailActivity extends BaseActivity
         setContentView(R.layout.activity_transfer_detail);
 
         ticket = getIntent().getParcelableExtra(TICKET);
-        Wallet wallet = getIntent().getParcelableExtra(WALLET);
+        wallet = getIntent().getParcelableExtra(WALLET);
         ticketIds = getIntent().getStringExtra(EXTRA_TOKENID_LIST);
         transferStatus = getIntent().getIntExtra(EXTRA_STATE, 0);
+        importOrder =  getIntent().getStringExtra(IMPORT_STRING);
         prunedIds = ticketIds;
 
         toolbar();
@@ -172,6 +183,7 @@ public class TransferTicketDetailActivity extends BaseActivity
 
             }
 
+            @SuppressLint("StringFormatInvalid")
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 validUntil.setText(getString(R.string.link_valid_until, s.toString(), expiryTimeEditText.getText().toString()));
@@ -336,6 +348,9 @@ public class TransferTicketDetailActivity extends BaseActivity
                 //transfer using eth
                 confirmTransfer();
                 break;
+            case CLAIM_TRANSFER:
+                confirmClaim();
+                break;
         }
 
         return newState;
@@ -395,6 +410,11 @@ public class TransferTicketDetailActivity extends BaseActivity
             case TRANSFER_TO_ADDRESS:
                 pickTransferAddress.setVisibility(View.VISIBLE);
                 titleText.setText(R.string.title_input_wallet_address);
+                break;
+            case CLAIM_TRANSFER:
+                pickTransferAddress.setVisibility(View.VISIBLE);
+                toAddressEditText.setText(wallet.address);
+                titleText.setText(R.string.title_claim_spawn_token);
                 break;
         }
     }
@@ -528,6 +548,48 @@ public class TransferTicketDetailActivity extends BaseActivity
         }
     }
 
+    private void claimTokenFinal()
+    {
+        ParseMagicLink parser = new ParseMagicLink(new CryptoFunctions());
+        try
+        {
+            MagicLinkData order = parser.parseUniversalLink(importOrder);
+
+            boolean isValid = true;
+            //complete the transfer
+
+            //check send address
+            toAddressError.setVisibility(View.GONE);
+            final String to = toAddressEditText.getText().toString();
+            if (!isAddressValid(to))
+            {
+                toAddressError.setVisibility(View.VISIBLE);
+                toAddressError.setText(getString(R.string.error_invalid_address));
+                isValid = false;
+            }
+
+            onProgress(true);
+
+            BigInteger val = Numeric.toBigInt(prunedIds);
+            int index = ticket.balanceArray.indexOf(val);
+
+            if (isValid)
+            {
+                viewModel.createClaimTransfer(
+                        to,
+                        ticket.getAddress(),
+                        index,
+                        Contract.GAS_PRICE,
+                        Contract.GAS_LIMIT,
+                        order);
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     protected void onResume()
     {
@@ -648,6 +710,36 @@ public class TransferTicketDetailActivity extends BaseActivity
         confirmationDialog.setPrimaryButtonText(R.string.transfer_tickets);
         confirmationDialog.setSecondaryButtonText(R.string.dialog_cancel_back);
         confirmationDialog.setPrimaryButtonListener(v1 -> transferTicketFinal());
+        confirmationDialog.setSecondaryButtonListener(v1 -> confirmationDialog.dismiss());
+        confirmationDialog.show();
+    }
+
+    private void confirmClaim()
+    {
+        final String to = toAddressEditText.getText().toString(); //to wallet owner
+        //check address
+        if (!isAddressValid(to))
+        {
+            toAddressError.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        //how many tickets are we selling?
+        int quantity = ticket.stringHexToBigIntegerList(prunedIds).size();
+        int ticketName = (quantity > 1) ? R.string.tickets : R.string.ticket;
+
+        String qty = "1 " +
+                getResources().getString(ticketName) + "\n" +
+                getResources().getString(R.string.to) + " " +
+                to;
+
+        confirmationDialog = new AWalletConfirmationDialog(this);
+        confirmationDialog.setTitle(R.string.title_transaction_details);
+        confirmationDialog.setSmallText(R.string.confirm_transfer_details);
+        confirmationDialog.setMediumText(qty);
+        confirmationDialog.setPrimaryButtonText(R.string.claim_token);
+        confirmationDialog.setSecondaryButtonText(R.string.dialog_cancel_back);
+        confirmationDialog.setPrimaryButtonListener(v1 -> claimTokenFinal());
         confirmationDialog.setSecondaryButtonListener(v1 -> confirmationDialog.dismiss());
         confirmationDialog.show();
     }

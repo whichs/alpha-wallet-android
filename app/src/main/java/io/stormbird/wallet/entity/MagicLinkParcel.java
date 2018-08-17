@@ -135,4 +135,22 @@ public class MagicLinkParcel implements Parcelable
 
         return data;
     }
+
+    public static byte[] generateSpawnPickFrom(MagicLinkData order, String walletAddress, int index)
+    {
+        byte[] data = null;
+        try
+        {
+            BigInteger date = BigInteger.valueOf(order.expiry);
+            //convert to signature representation
+            Sign.SignatureData sellerSig = sigFromByteArray(order.signature);
+            data = TokenRepository.createSpawnPickUp(date, index, (int)sellerSig.getV(), sellerSig.getR(), sellerSig.getS());
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        return data;
+    }
 }

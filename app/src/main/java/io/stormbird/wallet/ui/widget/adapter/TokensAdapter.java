@@ -48,7 +48,7 @@ public class TokensAdapter extends RecyclerView.Adapter<BinderViewHolder> {
     private int filterType;
     private Context context;
     private boolean needsRefresh;
-    private final AssetDefinitionService assetService;
+    protected final AssetDefinitionService assetService;
 
     protected final OnTokenClickListener onTokenClickListener;
     protected final SortedList<SortedItem> items = new SortedList<>(SortedItem.class, new SortedList.Callback<SortedItem>() {
@@ -103,7 +103,8 @@ public class TokensAdapter extends RecyclerView.Adapter<BinderViewHolder> {
         this.assetService = aService;
     }
 
-    public TokensAdapter() {
+    public TokensAdapter()
+    {
         onTokenClickListener = null;
         assetService = null;
     }

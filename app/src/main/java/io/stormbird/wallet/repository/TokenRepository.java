@@ -1070,6 +1070,13 @@ public class TokenRepository implements TokenRepositoryType {
         return Numeric.hexStringToByteArray(Numeric.cleanHexPrefix(encodedFunction));
     }
 
+    public static byte[] createSpawnPickUp(BigInteger date, int index, int v, byte[] r, byte[] s)
+    {
+        Function function = getSpawnPickupFunction(date, index, v, r, s);
+        String encodedFunction = FunctionEncoder.encode(function);
+        return Numeric.hexStringToByteArray(Numeric.cleanHexPrefix(encodedFunction));
+    }
+
     private static Function getCustomSpawnCreateFunction(BigInteger expiry, BigInteger message, int v, byte[] r, byte[] s, String to)
     {
         Function function = new Function(
@@ -1080,6 +1087,19 @@ public class TokenRepository implements TokenRepositoryType {
                                     new org.web3j.abi.datatypes.generated.Bytes32(r),
                                     new org.web3j.abi.datatypes.generated.Bytes32(s),
                                     new Address(to)),
+                Collections.<TypeReference<?>>emptyList());
+        return function;
+    }
+
+    private static Function getSpawnPickupFunction(BigInteger date, int index, int v, byte[] r, byte[] s)
+    {
+        Function function = new Function(
+                "pickupFrom",
+                Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Uint256(date),
+                                    new org.web3j.abi.datatypes.generated.Uint16(index),
+                                    new org.web3j.abi.datatypes.generated.Uint8(v),
+                                    new org.web3j.abi.datatypes.generated.Bytes32(r),
+                                    new org.web3j.abi.datatypes.generated.Bytes32(s)),
                 Collections.<TypeReference<?>>emptyList());
         return function;
     }

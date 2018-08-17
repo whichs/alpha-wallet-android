@@ -9,15 +9,17 @@ import java.util.List;
 import io.stormbird.wallet.ui.SpawnTokenDisplayActivity;
 
 import static io.stormbird.wallet.C.EXTRA_ADDRESS;
+import static io.stormbird.wallet.C.IMPORT_STRING;
 import static io.stormbird.wallet.C.Key.TICKET;
 
 public class SpawnTokenDisplayRouter
 {
-    public void open(Context context, ArrayList<String> tokenAddresses, String remoteAddress)
+    public void open(Context context, ArrayList<String> tokenAddresses, String remoteAddress, String magicLink)
     {
         Intent intent = new Intent(context, SpawnTokenDisplayActivity.class);
         intent.putStringArrayListExtra(TICKET, tokenAddresses);
         intent.putExtra(EXTRA_ADDRESS, remoteAddress);
+        intent.putExtra(IMPORT_STRING, magicLink);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(intent);
     }

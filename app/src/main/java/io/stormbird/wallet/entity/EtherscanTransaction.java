@@ -100,7 +100,7 @@ public class EtherscanTransaction
                 TransactionContract ct;
 
                 if (decoder == null) decoder = new TransactionDecoder();
-                if (parser == null) parser = new ParseMagicLink();
+                if (parser == null) parser = new ParseMagicLink(new CryptoFunctions());
                 TransactionInput f = decoder.decodeInput(input);
                 //is this a trade?
                 if (f.functionData != null)

@@ -12,7 +12,11 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 
+import org.web3j.utils.Numeric;
+
+import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.List;
 
 import javax.inject.Inject;
 
@@ -32,6 +36,7 @@ import io.stormbird.wallet.widget.ProgressView;
 import io.stormbird.wallet.widget.SystemView;
 
 import static io.stormbird.wallet.C.EXTRA_ADDRESS;
+import static io.stormbird.wallet.C.IMPORT_STRING;
 import static io.stormbird.wallet.C.Key.TICKET;
 
 public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnClickListener
@@ -47,7 +52,10 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
     private ArrayList<String> contractAddresses;
     private String remoteAddress;
+    private String importOrder;
     private GenericNFTAdapter adapter;
+
+    private List<Ticket> ticketList = new ArrayList<>();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState)
@@ -56,6 +64,7 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
         contractAddresses = getIntent().getStringArrayListExtra(TICKET);
         remoteAddress = getIntent().getStringExtra(EXTRA_ADDRESS);
+        importOrder =  getIntent().getStringExtra(IMPORT_STRING);
 
         super.onCreate(savedInstanceState);
 
@@ -79,7 +88,7 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
         viewModel.pushToast().observe(this, this::displayToast);
         viewModel.ticket().observe(this, this::onTokenUpdate);
 
-        adapter = new GenericNFTAdapter(viewModel.getAssetDefinitionService(), viewModel.getTokensService());
+        adapter = new GenericNFTAdapter(this::onTicketIdClick, viewModel.getAssetDefinitionService(), viewModel.getTokensService());
         list.setLayoutManager(new LinearLayoutManager(this));
         list.setAdapter(adapter);
         list.setHapticFeedbackEnabled(true);
@@ -115,8 +124,9 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
 
     private void onTokenUpdate(Token t)
     {
-        if (t != null && t instanceof Ticket)
+        if (t != null && t instanceof Ticket && !ticketList.contains(t))
         {
+            ticketList.add((Ticket)t);
             //add these tokens to the view
             adapter.addTicket((Ticket) t);
             list.setAdapter(adapter);
@@ -146,7 +156,8 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
     }
 
     @Override
-    public void onBackPressed() {
+    public void onBackPressed()
+    {
         super.onBackPressed();
         new HomeRouter().open(this, true);
     }
@@ -160,7 +171,6 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
             {
                 //this is now claim
                 //pick up the bug
-
             }
             break;
             case R.id.button_sell:
@@ -174,6 +184,28 @@ public class SpawnTokenDisplayActivity extends BaseActivity implements View.OnCl
                 finish();
             }
             break;
+        }
+    }
+
+    private void onTicketIdClick(View view, TicketRange index) {
+        //on clicking the ticket simply take user to import(claim) page
+        Ticket t = null;
+        for (Ticket ticket : ticketList)
+        {
+            if (ticket.getAddress().equals(index.contractAddress))
+            {
+                t = ticket;
+                break;
+            }
+        }
+
+        if (t != null)
+        {
+            //get index we clicked on
+            BigInteger ourToken = index.tokenIds.get(0);
+            String idListStr = Numeric.toHexStringNoPrefix(ourToken);// t.intArrayToString(ourToken, false); //list of B32 ID's
+
+            viewModel.openTransferState(this, t, idListStr, importOrder);
         }
     }
 }

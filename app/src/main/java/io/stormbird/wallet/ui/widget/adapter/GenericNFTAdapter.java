@@ -13,9 +13,13 @@ import io.stormbird.token.tools.TokenDefinition;
 import io.stormbird.wallet.R;
 import io.stormbird.wallet.entity.Ticket;
 import io.stormbird.wallet.entity.TicketRangeElement;
+import io.stormbird.wallet.entity.Token;
 import io.stormbird.wallet.service.AssetDefinitionService;
 import io.stormbird.wallet.service.TokensService;
+import io.stormbird.wallet.ui.widget.OnTicketIdClickListener;
+import io.stormbird.wallet.ui.widget.OnTokenClickListener;
 import io.stormbird.wallet.ui.widget.entity.TokenIdSortedItem;
+import io.stormbird.wallet.ui.widget.entity.TokenSortedItem;
 import io.stormbird.wallet.ui.widget.holder.BinderViewHolder;
 import io.stormbird.wallet.ui.widget.holder.GenericNFTHolder;
 import io.stormbird.wallet.ui.widget.holder.TicketHolder;
@@ -24,13 +28,14 @@ import io.stormbird.wallet.ui.widget.holder.TokenDescriptionHolder;
 public class GenericNFTAdapter extends TokensAdapter
 {
     private static final String TAG = "GNFTA";
-    private final AssetDefinitionService assetService;
     private final TokensService tokensService;
+    private final OnTicketIdClickListener onTicketIdClickListener;
 
-    public GenericNFTAdapter(AssetDefinitionService service, TokensService tService)
+    public GenericNFTAdapter(OnTicketIdClickListener listener, AssetDefinitionService service, TokensService tService)
     {
-        super();
-        assetService = service;
+        //(OnTokenClickListener onTokenClickListener, AssetDefinitionService aService)
+        super(null, service);
+        onTicketIdClickListener = listener;
         tokensService = tService;
         items.clear();
     }
@@ -40,7 +45,7 @@ public class GenericNFTAdapter extends TokensAdapter
         BinderViewHolder holder = null;
         switch (viewType) {
             case TicketHolder.VIEW_TYPE: {
-                GenericNFTHolder gHolder = new GenericNFTHolder(R.layout.item_ticket, parent, assetService, tokensService);
+                GenericNFTHolder gHolder = new GenericNFTHolder(onTicketIdClickListener, R.layout.item_ticket, parent, assetService, tokensService);
                 holder = gHolder;
             } break;
             case TokenDescriptionHolder.VIEW_TYPE: {

@@ -5,6 +5,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.stormbird.token.entity.MagicLinkData;
+import io.stormbird.token.entity.SalesOrderMalformed;
+import io.stormbird.token.tools.ParseMagicLink;
+import io.stormbird.wallet.entity.CryptoFunctions;
+
+import static io.stormbird.token.tools.ParseMagicLink.IMPORT_LINK_PREFIX;
+
 /**
  * Created by marat on 10/11/17.
  * Parses out protocol, address and parameters from a URL originating in QR codes used by wallets &
@@ -76,6 +83,11 @@ public class QRURLParser {
     }
 
     public QrUrlResult parse(String url) {
+        if (url.contains(IMPORT_LINK_PREFIX))
+        {
+            return parseMagicLinkQR(url);
+        }
+
         String[] parts = url.split(":");
 
         if (parts.length == 1) {
@@ -103,6 +115,25 @@ public class QRURLParser {
         }
 
         return null;
+    }
+
+    private QrUrlResult parseMagicLinkQR(String url)
+    {
+        String address = "";
+        try
+        {
+            CryptoFunctions cryptoFunctions = new CryptoFunctions();
+            ParseMagicLink parser = new ParseMagicLink(cryptoFunctions);
+            MagicLinkData data = parser.parseUniversalLink(url);
+            data.ownerAddress = parser.getOwnerKey(data);
+            address = data.ownerAddress;
+        }
+        catch (SalesOrderMalformed salesOrderMalformed)
+        {
+            salesOrderMalformed.printStackTrace();
+        }
+
+        return new QrUrlResult("", address.toLowerCase(), new HashMap<String, String>());
     }
 
     private static Map<String,String> parseParamsFromParamParts(List<String> paramParts) {

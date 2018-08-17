@@ -330,4 +330,6 @@
     <string name="create">Create</string>
     <string name="ticket_issue_passto">Issue Custom Spawnable</string>
     <string name="title_spawn_tokens">Show Tokens</string>
+    <string name="title_claim_spawn_token">Claim Token in Repository</string>
+    <string name="claim_token">Claim token</string>
 </resources>
